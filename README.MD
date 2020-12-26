@@ -2,12 +2,15 @@
 
 ### Roadmap
 #### pt. 1 -- basic
--[ ] Tree program representation
--[ ] Tree pretty-printer
--[ ] Interpreter
+-[x] Tree program representation
+-[x] Tree pretty-printer
+-[x] Interpreter
+-[x] **Tests**
+
 #### pt. 2 -- expressions operation and relations
 -[ ] Tightest expression generalization (e1 ⨅ e2)
 -[ ] Homeomorphic inception relation (**◁**, **⊴**)
+```(\x.x x)(\x.x x) <=> f f where f = \x.x x```
 
 #### pt. 3 -- tree operations
 -[ ] Driving
@@ -18,6 +21,31 @@
 -[ ] **Tests**
 
 ### Optional
+-[ ] Lambda-lifting preprocessing (move lambdas to `where` block and name them)
 -[ ] Tree parser
 -[ ] CLI
 -[ ] KMP Test
+
+
+### Program example
+```
+sum (squares (upto 1 n)) 0
+ where
+  sum     = \xs . \a .
+          case xs of
+          []     -> a
+          x : xs -> x + sum xs a
+          esac
+          
+  squares = \xs.
+          case xs of
+          []     -> []
+          x : xs -> (x * x) : squares xs
+          esac
+          
+  upto   = \m. \n.
+          case (m > n) of
+          True -> []
+          False -> m : (upto (m + 1) n)
+          esac
+```
