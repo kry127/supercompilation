@@ -135,12 +135,37 @@ data class Var(val name : String) : Expr(10, Assoc.NONE, true) {
     override fun toString() = name
 }
 
-data class Constructor(val name : String, val args : List<Expr>) : Expr(10, Assoc.NONE, args.isEmpty()) {
-    init {
-        // check constructor name
-        if (name == "Cons") {
-            if (args.size != 2) throw RuntimeException("List constructor can only have two parameters")
+class Constructor private constructor(val name : String, val args : List<Expr>, priority: Int, assoc: Assoc, leaf: Boolean)
+    : Expr(priority, assoc, leaf) {
+
+    override fun equals(other: Any?): Boolean {
+        if (other is Constructor) {
+            return name == other.name && args.equals(other.args)
         }
+        return super.equals(other)
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode() + 371 * args.hashCode()
+    }
+
+    constructor(name : String, args : List<Expr>)
+    : this(name, args, 10, Assoc.NONE, args.isEmpty())
+    { }
+    companion object {
+        fun Expr.cons(other : Expr) = Constructor("Cons", listOf(this, other), 3, Assoc.LEFT, false)
+        val nil = Constructor("Nil", listOf(), 10, Assoc.NONE, true)
+
+        fun Expr.succ() = Constructor("S", listOf(this))
+        val zero = Constructor("Z", listOf())
+        fun num(n : Int) : Constructor = if (n == 0) zero else (num(n-1).succ())
+    }
+    init {
+        // check constructor name.
+        if (name == "Cons" && args.size != 2)  throw error("List constructor can only have two parameters")
+        if (name == "Nil" && args.size != 0)  throw error("Empty list constructor has no parameters")
+        if (name == "S" && args.size != 1)  throw error("Church successor constructor 'S' accepts only one argument")
+        if (name == "Z" && args.size != 0)  throw error("Church zero constructor 'Z' accepts no argument")
         if (!name[0].isUpperCase()) {
             throw RuntimeException("Data constructors should begin with capital letter")
         }
@@ -148,11 +173,26 @@ data class Constructor(val name : String, val args : List<Expr>) : Expr(10, Asso
         args.forEach{it.parent = this}
     }
 
+    private fun asChurchNumeral() : Int? {
+        if (name == "S" && args.size == 1) {
+            val of = args[0]
+            if (of is Constructor) {
+                return of.asChurchNumeral()?.let { it + 1 }
+            }
+        }
+        if (name == "Z" && args.isEmpty()) return 0
+        return null
+    }
+
     override fun toString() : String {
         if (name == "Cons") {
             return "${placeBracketsWhenShow(Assoc.IGNORE, args.get(0))} : ${placeBracketsWhenShow(Assoc.IGNORE, args.get(1))}"
         } else if (name == "Nil") {
             return "[]"
+        }
+        val tryAsChurch = asChurchNumeral()
+        if (tryAsChurch != null) {
+            return "$tryAsChurch"
         }
         return "$name ${args.map { placeBracketsWhenShow(Assoc.NONE, it) }.joinToString(" ")}"
     }

@@ -3,7 +3,7 @@ package ru.itmo.mit.supercompiler.ast
 /**
  * Мы рассматриваем программу как корневое выражение с определёнными в контексте функциями
  */
-class Program private constructor(private val expression: Expr, private val where: Where) {
+class Program private constructor(val expression: Expr, private val where: Where) {
 
     companion object {
         /**
@@ -61,7 +61,7 @@ class Program private constructor(private val expression: Expr, private val wher
         }
         return """$expression
             | where
-            |  ${where.map { (k, v) -> "$k = $v" }}
+            |  ${where.map { (k, v) -> "$k = $v" }.joinToString("  ", "\n  ", "\n")}
         """.trimMargin()
     }
 
@@ -85,7 +85,7 @@ class Program private constructor(private val expression: Expr, private val wher
             is Application -> return lhs.extractLetRec()?.fmap{Application(this, rhs)}
                                   ?: rhs.extractLetRec()?.fmap{Application(rhs, this)}
             is Constructor ->  {
-                for (i in 0 until args.size) {
+                for (i in args.indices) {
                     val res = args[i].extractLetRec()
                     if (res != null) {
                         val argsMutable = args.toMutableList()
@@ -114,7 +114,9 @@ class Program private constructor(private val expression: Expr, private val wher
             is Var -> return null
             is Constructor -> return null
             is Lambda -> return null
-            is Let -> return null // do not throw, just not reduce
+
+            // try to extract let expression
+            is Let -> this.extractLetRec()
 
             is Function -> where[name]?.let { Program(it, where) }
 
@@ -132,26 +134,66 @@ class Program private constructor(private val expression: Expr, private val wher
         }
     }
 
-    /**
-     * Reduce program to WHNF form
-     */
-    fun whnf() : Program {
-        var prev = this
-        var e: Program?
-        // let-extractions
-        while (true) {
-            e = prev.extractLetRec() ?: break
-            prev = e
-        }
-        while (true) {
-            e = prev.whnfBetaReduction() ?: return prev
-            prev = e
+    private fun hnfBetaReduction() : Program? {
+        return expression.hnfBetaReduction()
+    }
+    private fun Expr.hnfBetaReduction() : Program? {
+        return when (this) {
+            // not reducible:
+            is Var -> return null
+
+            // try to extract let expression
+            is Let -> this.extractLetRec()
+
+            is Lambda -> body.hnfBetaReduction()?.let { Program(Lambda(name, it.expression), where) }
+            is Constructor -> {
+                for (i in args.indices) {
+                    val res = args[i].hnfBetaReduction()
+                    if (res != null) {
+                        val argsMutable = args.toMutableList()
+                        argsMutable[i] = res.expression
+                        return Program(Constructor(name, argsMutable), res.where)
+                    }
+                }
+                return null
+            }
+
+            is Function -> where[name]?.let { Program(it, where) }
+
+            is Application -> {
+                if (lhs is Lambda) {
+                    return lhs.body.substituteVar(Var(lhs.name), rhs).let { Program(it, where) }
+                } else {
+                    return lhs.hnfBetaReduction()?.let {Program(Application(it.expression, rhs), where)}
+                        ?: rhs.hnfBetaReduction()?.let {Program(Application(lhs, it.expression), where)}
+                }
+            }
+            is Case -> match.hnfBetaReduction()?.let{Program(Case(it.expression, branches), where)}
+                ?: branches.find { (p, _) -> p.cover(match) }
+                    ?.let { (p, e) -> p.substitutionData(match)?.fold(e) {acc, (v, b) -> acc.substituteVar(v, b)} }
+                    ?.let { Program(it, where) }
         }
     }
 
 
     /**
+     * Reduce program with strategy
+     */
+    fun nfWith(strategy : Program.() -> Program?) : Program {
+        var prev = this
+        var e: Program?
+        while (true) {
+            e = prev.strategy() ?: return prev
+            prev = e
+        }
+    }
+
+    fun whnf() : Program = nfWith { whnfBetaReduction() }
+    fun hnf() : Program = nfWith { hnfBetaReduction() }
+
+    /**
      * Produce sequence of reductions
      */
     fun whnfSeq() : Sequence<Program> = generateSequence (this) { it.whnfBetaReduction() }
+    fun hnfSeq() : Sequence<Program> = generateSequence (this) { it.hnfBetaReduction() }
 }

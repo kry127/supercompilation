@@ -1,0 +1,64 @@
+package ru.itmo.mit.supercompiler.ast
+
+import ru.itmo.mit.supercompiler.ast.Constructor.Companion.cons
+import ru.itmo.mit.supercompiler.ast.Constructor.Companion.nil
+import ru.itmo.mit.supercompiler.ast.Constructor.Companion.succ
+import ru.itmo.mit.supercompiler.ast.Constructor.Companion.zero
+
+/**
+ * This object contains common expressions in lambda calculus
+ */
+object CommonExpressions {
+    val id = Lambda("x", Var("x"))
+    val K = Lambda("x", Lambda("y", Var("x")))
+    val K2 = Lambda("x", Lambda("y", Var("y")))
+    val omega = Lambda("y", Application(Var ("y"), Var("y")))
+    val omegaBig = Application(omega, omega)
+
+    fun lamChurch(n : Int) : Expr {
+        val x = {t : Expr -> Application(Var("s"), t) }
+        var body : Expr = Var("z")
+        repeat (n) {
+            body = x(body)
+        }
+        return Lambda("s", Lambda("z", body))
+    }
+    val lamChurchZ = lamChurch(0)
+    fun lamChurchSuc(ch : Expr) = Lambda("s", Lambda("z", Application(Application(ch, Var("s")), Application(Var("s"), Var("z")))))
+
+    fun <T : Expr> listFrom(vals : List<T>) : Constructor {
+        var core = nil
+        for (x in vals.reversed()) {
+            core = x.cons(core)
+        }
+        return core
+    }
+    val list_xyz = listFrom(listOf("x", "y", "z").map { Var(it) })
+    val list_empty = "x".let { x ->
+        makeCase(
+            Var(x),
+            makePattern("Cons", "x", "xs") to lamChurchZ,
+                makePattern("Nil") to lamChurchZ
+        ).abs(x)
+    }
+    val list_size_lambdaChurch =
+        "x".let { x ->
+            Let("list_size",
+        makeCase(
+            Var(x),
+                makePattern("Cons", "x", "xs") to lamChurchSuc(Function("list_size").app(Var("xs"))),
+                makePattern("Nil") to lamChurchZ
+        ).abs(x), Function("list_size")
+            )
+    }.toProgram()
+    val list_size =
+        "x".let { x ->
+            Let("list_size",
+                makeCase(
+                    Var(x),
+                    makePattern("Cons", "x", "xs") to Function("list_size").app(Var("xs")).succ(),
+                    makePattern("Nil") to zero
+                ).abs(x), Function("list_size")
+            )
+        }.toProgram()
+}
