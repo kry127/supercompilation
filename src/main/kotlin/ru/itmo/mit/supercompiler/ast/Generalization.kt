@@ -42,7 +42,10 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
                 lhs.freeVars union lhs.boundVars union rhs.freeVars union rhs.boundVars).iterator()
 
             // all renaming should happen in context of the single name generator for correctness
-            return gen.generatorGeneralizer(lhs, rhs)
+            val wastefulGeneralization =  gen.generatorGeneralizer(lhs, rhs)
+
+            // when first part of algo is completed, clean up variables named differently which maps to the same content
+            return refine(wastefulGeneralization)
         }
 
         private fun Iterator<String>.generatorGeneralizer(e1 : Expr, e2 : Expr) : Generalization {
