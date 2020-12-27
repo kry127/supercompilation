@@ -10,8 +10,8 @@ typealias Where = Map<String, Expr>
 fun Expr.toProgram() = Program.convertToProgram(this)
 
 // some lambda calculus
-fun Expr.app(other: Expr) : Expr = Application(this, other)
-fun Expr.abs(name : String) : Lambda = Lambda(name, this)
+infix fun Expr.app(other: Expr) : Expr = Application(this, other)
+infix fun Expr.abs(name : String) : Lambda = Lambda(name, this)
 
 // pattern matching sugar
 fun makePattern(name : String, vararg x : String) = Pattern(name, x.map { Var(it) })

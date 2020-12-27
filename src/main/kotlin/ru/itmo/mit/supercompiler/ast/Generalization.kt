@@ -19,9 +19,13 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
          */
         private fun List<Substitution>.flatten() : Substitution = this.flatMap { it.entries }.associate { (k, v) -> k to v }
 
-        private fun trivialGeneralization(e1: Expr, e2: Expr) : Generalization {
-            val newVarName = Generator.numberedVariables("s",
-                e1.freeVars union e1.boundVars union e2.freeVars union e2.boundVars).first()
+        private fun Iterator<String>.trivialGeneralization(e1: Expr, e2: Expr) : Generalization {
+            // check if expressions are equal and return empty generalization
+            if (e1.equals(e2)) {
+                return Generalization(e1, mapOf(), mapOf())
+            }
+            // TODO think about e1.isomorphic(e2) -- this is a RENAMING
+            val newVarName = next()
             return Generalization(Var(newVarName), mapOf(newVarName to e1), mapOf(newVarName to e2))
         }
 
@@ -149,6 +153,14 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
             return Generalization(ex, subLeft.toMap(), subRight.toMap())
         }
 
+        private fun <T> nullableIntersect(l : List<T>?, r : List<T>?) : Set<T>{
+            if (r == null) {
+                return l?.toSet() ?: setOf()
+            } else {
+                return l?.intersect(r) ?: r.toSet()
+            }
+        }
+
         /**
          * This function returns groups of congruent variables.
          * This is such variables, that have the same name and they map to the same expression
@@ -156,11 +168,11 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
         private fun congruentVariables(left : Substitution, right : Substitution) : List<Set<String>> {
             // we use renamed form of expressions so equals() can properly work
             // but! these are the "keys"! Do not use this modified expressions at target
-            val flipL = left .entries.groupBy ({ (_, e) -> e.renamedBoundVariables() }) { (l, _) -> l}.withDefault { listOf() }
-            val flipR = right.entries.groupBy ({ (_, e) -> e.renamedBoundVariables() }) { (l, _) -> l}.withDefault { listOf() }
+            val flipL = left .entries.groupBy ({ (_, e) -> e.renamedBoundVariables() }) { (l, _) -> l}
+            val flipR = right.entries.groupBy ({ (_, e) -> e.renamedBoundVariables() }) { (l, _) -> l}
 
             // that's how we get variables that should have the same name:
-            return (flipL.keys + flipR.keys).map { flipL[it]!! intersect flipR[it]!! }
+            return (flipL.keys + flipR.keys).map { nullableIntersect(flipL[it], flipR[it]) }
         }
     }
 }

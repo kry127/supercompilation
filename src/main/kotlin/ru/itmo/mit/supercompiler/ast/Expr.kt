@@ -153,7 +153,7 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
     : this(name, args, 9, Assoc.NONE, args.isEmpty())
     { }
     companion object {
-        fun Expr.cons(other : Expr) = Constructor("Cons", listOf(this, other), 3, Assoc.LEFT, false)
+        infix fun Expr.cons(other : Expr) = Constructor("Cons", listOf(this, other), 3, Assoc.LEFT, false)
         val nil = Constructor("Nil", listOf(), 10, Assoc.NONE, true)
 
         fun Expr.succ() = Constructor("S", listOf(this))
