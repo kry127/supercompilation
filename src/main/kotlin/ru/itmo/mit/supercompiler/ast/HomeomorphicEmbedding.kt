@@ -56,7 +56,7 @@ private fun Expr.homoDiving(ctx : BoundedVariables, other : Expr) : Boolean {
     // TODO don't understand why, but article says it is a good move.
     // Example : \x.\y.f  <=>   \x.\y.x f
     if (!(freeVars intersect ctx.domain).isEmpty()) return false // this
-    if (!(other.freeVars intersect ctx.domain).isEmpty()) return false // or this? Or both??
+    if (!(other.freeVars intersect ctx.codomain).isEmpty()) return false // or this? Or both??
     return when (other) {
         is Constructor -> other.args.any { homo(ctx, it) }
         is Lambda -> homo(ctx.putCodomain(other.name), other.body)
@@ -75,13 +75,14 @@ private fun Expr.homoCoupling(ctx : BoundedVariables, other : Expr) : Boolean {
     } else if (this is Lambda && other is Lambda) {
         return body.homo(ctx.put(name to other.name), other.body)
     } else if (this is Application && other is Application) {
-            if (lhs is Application) {
-                // left should not be application === left is checking with coupling, right with ordinary homo
-                return lhs.homoCoupling(ctx, other.lhs) && rhs.homo(other.rhs)
-            } else {
-                // apply ordinary rules instead
-                return lhs.homo(ctx, other.lhs) && rhs.homo(other.rhs)
-            }
+        // TODO fix instance 8
+        if (lhs is Application) {
+            // left should not be application === left is checking with coupling, right with ordinary homo
+            return lhs.homoCoupling(ctx, other.lhs) && rhs.homo(ctx, other.rhs)
+        } else {
+            // apply ordinary rules instead
+            return lhs.homo(ctx, other.lhs) && rhs.homo(ctx, other.rhs)
+        }
     } else if (this is Case && other is Case) {
         return match.homo(ctx, other.match) &&
                 this.branches.zip(other.branches).all { (br1, br2) ->

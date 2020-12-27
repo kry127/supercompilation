@@ -55,13 +55,13 @@ class HomeomorphicEmbedding {
     fun instance8() {
         val expr1 = makeArticleCases(Var("f"), Var("b"))
         val expr2 = makeArticleCases(Var("f") app Var("g"), Var("b"))
-        assertFalse(expr1 homo expr2)
+        assertFalse(expr1 homoCoupling expr2)
     }
 
     @Test
     fun instance9() {
         val expr1 = makeArticleCases(Var("f"), Var("b"))
         val expr2 = makeArticleCases(Var("f"), Var("g") app Var("b"))
-        assertFalse(expr1 homo expr2)
+        assertFalse(expr1 homoCoupling expr2)
     }
 }
