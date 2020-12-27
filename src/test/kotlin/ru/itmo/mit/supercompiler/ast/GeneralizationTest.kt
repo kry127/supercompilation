@@ -1,9 +1,10 @@
 package ru.itmo.mit.supercompiler.ast
 
-import org.testng.Assert.*
+import org.testng.Assert.assertTrue
 import org.testng.annotations.Test
 import ru.itmo.mit.supercompiler.ast.Constructor.Companion.cons
 import ru.itmo.mit.supercompiler.ast.Constructor.Companion.nil
+import kotlin.test.assertEquals
 
 class GeneralizationTest {
 
@@ -18,6 +19,7 @@ class GeneralizationTest {
     fun makeCustomCases(a : Expr, b : Expr) = makeCase(Var("x"), makePattern("Z") to Var("x"),
         makePattern("S", "b") to (a app b))
 
+    // a couple of instances showed in article
     @Test
     fun instance1() {
         val expr1 = Function("map") app (Function("f"))
@@ -60,5 +62,67 @@ class GeneralizationTest {
         val expr1 = makeCustomCases(Function("f"), Var("b"))
         val expr2 = makeCustomCases(Function("f"), Function("g") app Var("b"))
         generalizationPrinter(expr1, expr2)
+    }
+
+    // random tests
+    fun checkThatExprsIsARenamingOfGeneralization(expr1: Expr, expr2: Expr, silent : Boolean = false) {
+        val generalization = Generalization.generalize(expr1, expr2)
+        val expr1_restore = generalization.expr.applySub(generalization.subLeft)
+        val expr2_restore = generalization.expr.applySub(generalization.subRight)
+        if (!silent) {
+            println("Common expr: ${generalization.expr}")
+            println("Subst1: ${generalization.subLeft}")
+            println("Subst1: ${generalization.subRight}")
+            println()
+            println("$expr1_restore ==? $expr1")
+            println()
+        }
+        assertTrue(expr1_restore isomorphic expr1)
+        if (!silent) {
+            println("$expr2_restore ==? $expr2")
+            println()
+        }
+        assertTrue(expr2_restore isomorphic expr2)
+    }
+    @Test
+    fun randomTest_checkThatExprsIsARenamingOfGeneralization_verbose() {
+        val varNames = setOf("x", "y", "z")
+        val funNames = setOf("f", "g", "h")
+        val ktorNames = setOf("True", "False")
+        val treeGen = RandomExprGenerator(varNames,funNames, ktorNames, 5, 3, 134723)
+
+        repeat(1000) {
+            println()
+            println(" === #$it ===")
+
+            checkThatExprsIsARenamingOfGeneralization(treeGen.next().renamedBoundVariables(),
+                                                      treeGen.next().renamedBoundVariables())
+        }
+    }
+
+    @Test
+    fun randomTest_checkThatExprsIsARenamingOfGeneralization_silent1() {
+        val varNames = setOf("x", "y", "z")
+        val funNames = setOf("f", "g", "h")
+        val ktorNames = setOf("True", "False")
+        val treeGen = RandomExprGenerator(varNames,funNames, ktorNames, 7, 3, 349133)
+
+        repeat(10000) {
+            checkThatExprsIsARenamingOfGeneralization(treeGen.next().renamedBoundVariables(),
+                treeGen.next().renamedBoundVariables(), silent = true)
+        }
+    }
+
+    @Test
+    fun randomTest_checkThatExprsIsARenamingOfGeneralization_deep() {
+        val varNames = setOf("x", "y", "z")
+        val funNames = setOf("f", "g", "h")
+        val ktorNames = setOf("True", "False")
+        val treeGen = RandomExprGenerator(varNames,funNames, ktorNames, 22, 5, 144209)
+
+        repeat(1000) {
+            checkThatExprsIsARenamingOfGeneralization(treeGen.next().renamedBoundVariables(),
+                treeGen.next().renamedBoundVariables(), silent = true)
+        }
     }
 }

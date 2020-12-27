@@ -2,8 +2,6 @@
 
 package ru.itmo.mit.supercompiler.ast
 
-typealias Substitution = Map<String, Expr>
-
 /**
  * Generalization
  */
@@ -39,7 +37,9 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
         infix fun Expr.П(other: Expr) = generalize(this, other)
         fun generalize(lhs: Expr, rhs: Expr) : Generalization {
             // TODO do we really can't do this?
-            if (!lhs.isValid() && !rhs.isValid()) error("cannot generalize expressions with collisions")
+            if (!lhs.isValid() && !rhs.isValid()) {
+                error("cannot generalize expressions with collisions")
+            }
 
             // use the same generator to avoid generated variables name collision
             val gen = Generator.numberedVariables("c",
@@ -141,7 +141,7 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
             val subLeft = generalization.subLeft.toMutableMap()
             val subRight = generalization.subRight.toMutableMap()
             for (set in eqSet) {
-                if (set.size == 1) continue // no need to join single variable
+                if (set.size <= 1) continue // no need to join single variable
                 // everyone in set should be replaced with one single representator
                 val representative = set.first()
                 for (other in set - representative) {
@@ -154,10 +154,10 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
         }
 
         private fun <T> nullableIntersect(l : List<T>?, r : List<T>?) : Set<T>{
-            if (r == null) {
-                return l?.toSet() ?: setOf()
+            if (r == null || l == null) {
+                return setOf()
             } else {
-                return l?.intersect(r) ?: r.toSet()
+                return l intersect r
             }
         }
 

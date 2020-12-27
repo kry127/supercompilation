@@ -38,7 +38,7 @@ sealed class Expr(open val priority : Int, open val assoc : Assoc, open val leaf
     /**
      * Проверям, являются ли термы равными с точностью до имён замкнутых переменных
      */
-    fun isomorphic(other : Expr) = renamedBoundVariables().equals(other.renamedBoundVariables())
+    infix fun isomorphic(other : Expr) = renamedBoundVariables().equals(other.renamedBoundVariables())
 
     /**
      * Переименование замкнутых переменных
@@ -240,7 +240,7 @@ data class Let(val name : String, val definition : Expr, val body : Expr) : Expr
 /**
  * Pattern is not an expression, but it is a part of 'Case' statement
  */
-class Pattern(val name : String, val args : List<Var>) {
+data class Pattern(val name : String, val args : List<Var>) {
     init {
         // check constructor name
         Constructor(name, args)

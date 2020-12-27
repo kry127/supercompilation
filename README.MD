@@ -8,8 +8,9 @@
 -[x] **Tests**
 
 #### pt. 2 -- expressions operation and relations
--[ ] Tightest expression generalization (e1 ⨅ e2)
+-[x] Tightest expression generalization (e1 ⨅ e2)
 -[ ] Homeomorphic inception relation (**◁**, **⊴**)
+-[ ] **Tests**
 ```(\x.x x)(\x.x x) <=> f f where f = \x.x x```
 
 #### pt. 3 -- tree operations

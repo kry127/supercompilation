@@ -7,7 +7,8 @@ import ru.itmo.mit.supercompiler.ast.Constructor.Companion.zero
 import kotlin.random.Random
 import kotlin.random.nextInt
 
-class RandomExprGenerator(val varNames : List<String>, val maxHeight : Int, val maxWidth : Int, seed : Long? = null) : Iterator<Expr> {
+class RandomExprGenerator(val varNames: Set<String>, val funNames: Set<String>, val ktorNames : Set<String>,
+                          val maxHeight: Int, val maxWidth: Int, seed: Long? = null) : Iterator<Expr> {
 
     val rnd = Random(seed ?: System.currentTimeMillis())
 
@@ -19,12 +20,14 @@ class RandomExprGenerator(val varNames : List<String>, val maxHeight : Int, val 
     fun randomLeaf() : Expr {
         return when (rnd.nextInt(0..3)) {
             0 -> Var(varNames.random(rnd))
-            1 -> Function(varNames.random(rnd))
+            1 -> Function(funNames.random(rnd))
             2 -> nil
             else -> zero
         }
     }
-    fun generateRandomList(height: Int) : Expr = createRandomTree(height - 1) cons generateRandomList(rnd.nextInt(0..height - 1))
+    fun generateRandomList(height: Int) : Expr =
+        if (height <= 0) nil
+        else createRandomTree(height - 1) cons generateRandomList(rnd.nextInt(0..height - 1))
 
     fun generateRandomPattern() : Pattern {
         return when(rnd.nextInt(0..4)) {
@@ -32,7 +35,7 @@ class RandomExprGenerator(val varNames : List<String>, val maxHeight : Int, val 
             1 -> makePattern("Cons", *(1..2).map{varNames.random(rnd)}.toTypedArray())
             2 -> zero.toPattern().first
             3 -> makePattern("S", varNames.random(rnd))
-            else -> makePattern(varNames.random(rnd), *(1..maxWidth).map{varNames.random(rnd)}.toTypedArray())
+            else -> makePattern(ktorNames.random(rnd), *(1..maxWidth).map{varNames.random(rnd)}.toTypedArray())
         }
 
     }
@@ -42,7 +45,7 @@ class RandomExprGenerator(val varNames : List<String>, val maxHeight : Int, val 
 
         return when (rnd.nextInt(0..6)) {
             0 -> Var(varNames.random(rnd))
-            1 -> Function(varNames.random(rnd))
+            1 -> Function(funNames.random(rnd))
             2 -> nil
             3 -> generateRandomList(height)
             4 -> num(height - 1)
