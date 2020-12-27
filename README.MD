@@ -9,7 +9,7 @@
 
 #### pt. 2 -- expressions operation and relations
 -[x] Tightest expression generalization (e1 ⨅ e2)
--[ ] Homeomorphic inception relation (**◁**, **⊴**)
+-[x] Homeomorphic embedding relation (**◁**, **⊴**)
 -[ ] **Tests**
 ```(\x.x x)(\x.x x) <=> f f where f = \x.x x```
 
