@@ -12,7 +12,7 @@
 #### pt. 2 -- expressions operation and relations
 -[x] Tightest expression generalization (e1 ⨅ e2)
 -[x] Homeomorphic embedding relation (**◁**, **⊴**)
--[ ] **Tests**
+-[x] **Tests** :heavy_exclamation_mark:
 ```(\x.x x)(\x.x x) <=> f f where f = \x.x x```
 
 #### pt. 3 -- tree operations
