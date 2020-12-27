@@ -4,7 +4,7 @@ object Generator {
     /*
      * The simplest generator of bound variables
      */
-    fun makePostfixNumberSequenceCallback(prefix : String, isValid : (String) -> Boolean = { true }) : Sequence<String> {
+    fun numberedVariables(prefix : String, isValid : (String) -> Boolean = { true }) : Sequence<String> {
         var i = 0
         return generateSequence {
             while (true) {
@@ -14,8 +14,8 @@ object Generator {
         }
     }
 
-    fun makePostfixNumberSequence(prefix : String, except : Set<String> = emptySet()) : Sequence<String> {
-        return makePostfixNumberSequenceCallback(prefix) {!(it in except)}
+    fun numberedVariables(prefix : String, except : Set<String>) : Sequence<String> {
+        return numberedVariables(prefix) {!(it in except)}
     }
 
 }

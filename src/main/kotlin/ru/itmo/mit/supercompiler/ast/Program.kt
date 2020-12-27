@@ -16,7 +16,7 @@ class Program private constructor(val expression: Expr, private val where: Where
                 return when(expr) {
                     is Let -> {
                         return if (expr.name in ctx) {
-                            val newName = Generator.makePostfixNumberSequenceCallback(expr.name) { !(it in ctx) }.first()
+                            val newName = Generator.numberedVariables(expr.name) { !(it in ctx) }.first()
                             ctx += newName to expr.definition
                             // substitute function name
                             expr.body.substitudeFunName(expr.name, newName)

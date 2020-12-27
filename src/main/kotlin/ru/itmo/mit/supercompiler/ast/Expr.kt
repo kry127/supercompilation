@@ -1,6 +1,6 @@
 package ru.itmo.mit.supercompiler.ast
 
-import ru.itmo.mit.supercompiler.ast.Generator.makePostfixNumberSequence
+import ru.itmo.mit.supercompiler.ast.Generator.numberedVariables
 
 enum class Assoc {LEFT, RIGHT, NONE, IGNORE}
 
@@ -45,7 +45,7 @@ sealed class Expr(open val priority : Int, open val assoc : Assoc, open val leaf
      * :parameter `nameBanList` -- какие имена не следует генерировать
      */
     fun renamedBoundVariables(prefix : String = "x", nameBanList : Set<String> = setOf()) : Expr {
-        return renameWithContext(makePostfixNumberSequence(prefix,nameBanList + freeVars).iterator(), mapOf())
+        return renameWithContext(numberedVariables(prefix,nameBanList + freeVars).iterator(), mapOf())
     }
 
     /**
@@ -245,6 +245,11 @@ class Pattern(val name : String, val args : List<Var>) {
         // check constructor name
         Constructor(name, args)
     }
+
+    /**
+     * Check that patterns are matching the same
+     */
+    infix fun match(other : Pattern) = name == other.name && args.size == other.args.size
 
     override fun toString() = Constructor(name, args).toString()
 

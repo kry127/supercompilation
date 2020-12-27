@@ -1,6 +1,6 @@
 package ru.itmo.mit.supercompiler.ast
 
-import ru.itmo.mit.supercompiler.ast.Generator.makePostfixNumberSequence
+import ru.itmo.mit.supercompiler.ast.Generator.numberedVariables
 
 /**
  * Блок 'where' -- это просто отображение из глобального имени в выражение
@@ -16,7 +16,7 @@ fun Expr.abs(name : String) : Lambda = Lambda(name, this)
 // pattern matching sugar
 fun makePattern(name : String, vararg x : String) = Pattern(name, x.map { Var(it) })
 fun Constructor.toPattern(): Pair<Pattern, List<String>> {
-    val generatedNames = makePostfixNumberSequence("p").take(args.size).toList()
+    val generatedNames = numberedVariables("p").take(args.size).toList()
     val pattern = Pattern(name, generatedNames.map { Var(it) })
     return Pair(pattern, generatedNames)
 }
