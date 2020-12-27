@@ -14,10 +14,6 @@ class GeneralizationTest {
         println("subst 2 = ${generalization.subRight}")
     }
 
-    // this is a test for homeomorphic inception
-    fun makeCustomCases(a : Expr, b : Expr) = makeCase(Var("x"), makePattern("Z") to Var("x"),
-        makePattern("S", "b") to (a app b))
-
     // a couple of instances showed in article
     @Test
     fun instance1() {
@@ -44,22 +40,22 @@ class GeneralizationTest {
 
     @Test
     fun instance4() {
-        val expr1 = makeCustomCases(Function("f"), Var("b"))
-        val expr2 = makeCustomCases(Function("g"), Var("b"))
+        val expr1 = makeArticleCases(Function("f"), Var("b"))
+        val expr2 = makeArticleCases(Function("g"), Var("b"))
         generalizationPrinter(expr1, expr2)
     }
 
     @Test
     fun instance5() {
-        val expr1 = makeCustomCases(Function("f"), Var("b"))
-        val expr2 = makeCustomCases(Function("f") app Function("g"), Var("b"))
+        val expr1 = makeArticleCases(Function("f"), Var("b"))
+        val expr2 = makeArticleCases(Function("f") app Function("g"), Var("b"))
         generalizationPrinter(expr1, expr2)
     }
 
     @Test
     fun instance6() {
-        val expr1 = makeCustomCases(Function("f"), Var("b"))
-        val expr2 = makeCustomCases(Function("f"), Function("g") app Var("b"))
+        val expr1 = makeArticleCases(Function("f"), Var("b"))
+        val expr2 = makeArticleCases(Function("f"), Function("g") app Var("b"))
         generalizationPrinter(expr1, expr2)
     }
 
