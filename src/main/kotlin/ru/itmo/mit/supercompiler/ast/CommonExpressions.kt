@@ -1,5 +1,7 @@
 package ru.itmo.mit.supercompiler.ast
 
+import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.mult
+import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.plus
 import ru.itmo.mit.supercompiler.ast.Constructor.Companion.cons
 import ru.itmo.mit.supercompiler.ast.Constructor.Companion.nil
 import ru.itmo.mit.supercompiler.ast.Constructor.Companion.succ
@@ -40,15 +42,15 @@ object CommonExpressions {
             makePattern("Cons", "x", "xs") to lamChurchZ,
                 makePattern("Nil") to lamChurchZ
         ).abs(x)
-    }
+    }.toProgram()
     val list_size_lambdaChurch =
         "x".let { x ->
             Let("list_size",
-        makeCase(
-            Var(x),
-                makePattern("Cons", "x", "xs") to lamChurchSuc(Function("list_size").app(Var("xs"))),
-                makePattern("Nil") to lamChurchZ
-        ).abs(x), Function("list_size")
+                makeCase(
+                    Var(x),
+                        makePattern("Cons", "x", "xs") to lamChurchSuc(Function("list_size").app(Var("xs"))),
+                        makePattern("Nil") to lamChurchZ
+                ).abs(x), Function("list_size")
             )
     }.toProgram()
     val list_size =
@@ -61,4 +63,67 @@ object CommonExpressions {
                 ).abs(x), Function("list_size")
             )
         }.toProgram()
+
+    // program example
+    fun sumSquaresN(n : Int) {
+        val sum = {
+            val vars = listOf("x", "xs", "a")
+            val (x, xs, a) = vars
+            val (vx, vxs, va) = vars.map { Var(it) }
+            makeCase(vxs, makePattern("Nil") to va
+                       , makePattern("Cons", x, xs) to (vx plus Function("sum").app(vxs).app(va)) )
+                .abs(a).abs(xs)
+        }
+
+        val squares = {
+            val vars = listOf("x", "xs")
+            val (x, xs) = vars
+            val (vx, vxs) = vars.map { Var(it) }
+            makeCase(vxs, makePattern("Nil") to nil,
+                        makePattern("Cons", x, xs) to (vx mult vx).cons(Function("squares").app(vxs)))
+        }
+
+        val upto = {
+            val vars = listOf("m", "n")
+            val (m, n) = vars
+            val (vm, vn) = vars.map { Var(it) }
+        }
+    }
+
+    /* Church numerals arithmetics */
+    object Num {
+        val sumFname = "+"
+        val mulFname = "*"
+        fun letSum(wrapped: Expr) : Let {
+            val x = "x"
+            val y = "y"
+            val (pzero, _) = zero.toPattern()
+            val (psuc, nvsuc) = zero.succ().toPattern()
+            return Let(sumFname,
+                makeCase(Var(x),
+                    pzero to Var(y),
+                    psuc to Function(sumFname).app(Var(nvsuc[0])).app(Var(y).succ())
+                ).abs(y).abs(x), wrapped
+            )
+        }
+
+        fun letMul(wrapped: Expr) : Let {
+            val x = "x"
+            val y = "y"
+            val (pzero, _) = zero.toPattern()
+            val (psuc, nvsuc) = zero.succ().toPattern()
+            return Let(mulFname,
+                makeCase(Var(x),
+                pzero to zero,
+                    psuc to makeCase(Var(y),
+                        pzero to zero,
+                        psuc to Function(sumFname).app(Var(x)).app(Function(mulFname).app(Var(x)).app(Var(nvsuc[0])))
+                ),
+                ).abs(x).abs(y), wrapped
+            )
+        }
+
+        infix fun Expr.plus(other : Expr) = Function(sumFname).app(this).app(other)
+        infix fun Expr.mult(other : Expr) = Function(mulFname).app(this).app(other)
+    }
 }

@@ -150,7 +150,7 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
     }
 
     constructor(name : String, args : List<Expr>)
-    : this(name, args, 10, Assoc.NONE, args.isEmpty())
+    : this(name, args, 9, Assoc.NONE, args.isEmpty())
     { }
     companion object {
         fun Expr.cons(other : Expr) = Constructor("Cons", listOf(this, other), 3, Assoc.LEFT, false)
@@ -264,46 +264,3 @@ class Pattern(val name : String, val args : List<Var>) {
         return args.zip(ctor.args)
     }
 }
-
-/*
- * One-step reduction
- * The function should not contain
- */
-fun whnfBetaReduction0(expr : Expr) = whnfBetaReduction(expr, mapOf())
-fun whnfBetaReduction(expr : Expr, where : Where) : Expr? {
-   return when (expr) {
-       // not reducible in whnf
-       is Var -> null
-       is Constructor -> null
-       is Lambda -> null
-
-       is Application -> {
-           val lhs = expr.lhs
-           if (lhs is Lambda) {
-               return lhs.body.substituteVar(Var(lhs.name), expr.rhs)
-           } else {
-               return whnfBetaReduction(lhs, where)?.let {Application(it, expr.rhs)}
-           }
-       }
-       is Case -> whnfBetaReduction(expr.match, where)?.let{Case(it, expr.branches)}
-           ?: expr.branches.find { (p, _) -> p.cover(expr.match) }?.second
-
-       // do not search upper scopes -- this situation will be handled in Let case
-       is Function -> where[expr.name]
-       // this case should not appear, because all Let are banished to where section
-       is Let -> error("Let expressions are not valid to reduce! Rewrite program with lambdas or use Program instead")
-   }
-}
-
-fun whnf0(expr : Expr) = whnf(expr, mapOf())
-fun whnf(expr : Expr, where: Where) : Expr {
-    var prev = expr
-    var e: Expr?
-    while (true) {
-        e = whnfBetaReduction(prev, where) ?: return prev
-        prev = e
-    }
-}
-
-fun whnfSeq0(expr : Expr) : Sequence<Expr> = whnfSeq(expr, mapOf())
-fun whnfSeq(expr : Expr, where: Where) : Sequence<Expr> = generateSequence (expr) { whnfBetaReduction(it, where) }

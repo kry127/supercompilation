@@ -72,7 +72,7 @@ class Program private constructor(val expression: Expr, private val where: Where
     /*
      * This function extracts one let definition to where block if possible
      */
-    private fun extractLetRec() : Program? {
+    fun extractLetRec() : Program? {
         return expression.extractLetRec()
     }
     private fun Expr.extractLetRec() : Program? {
@@ -105,7 +105,7 @@ class Program private constructor(val expression: Expr, private val where: Where
     /*
      * One step reduction for program
      */
-    private fun whnfBetaReduction() : Program? {
+    fun whnfBetaReduction() : Program? {
         return expression.whnfBetaReduction()
     }
     private fun Expr.whnfBetaReduction() : Program? {
@@ -134,7 +134,7 @@ class Program private constructor(val expression: Expr, private val where: Where
         }
     }
 
-    private fun hnfBetaReduction() : Program? {
+    fun hnfBetaReduction() : Program? {
         return expression.hnfBetaReduction()
     }
     private fun Expr.hnfBetaReduction() : Program? {
@@ -196,4 +196,5 @@ class Program private constructor(val expression: Expr, private val where: Where
      */
     fun whnfSeq() : Sequence<Program> = generateSequence (this) { it.whnfBetaReduction() }
     fun hnfSeq() : Sequence<Program> = generateSequence (this) { it.hnfBetaReduction() }
+
 }

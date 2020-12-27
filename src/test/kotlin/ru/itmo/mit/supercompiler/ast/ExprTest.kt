@@ -4,6 +4,10 @@ import org.testng.Assert.*
 import org.testng.annotations.Test
 import ru.itmo.mit.supercompiler.ast.CommonExpressions.K
 import ru.itmo.mit.supercompiler.ast.CommonExpressions.K2
+import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.letMul
+import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.letSum
+import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.mult
+import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.plus
 import ru.itmo.mit.supercompiler.ast.CommonExpressions.lamChurch
 import ru.itmo.mit.supercompiler.ast.CommonExpressions.lamChurchSuc
 import ru.itmo.mit.supercompiler.ast.CommonExpressions.lamChurchZ
@@ -25,13 +29,6 @@ fun printTerm(term : String) {
         println()
     } else {
         println("    $term")
-    }
-}
-
-fun stepByStepPrinter(expr : Expr) {
-    println("Step by step reduction of $expr")
-    for (term in whnfSeq0(expr.renamedBoundVariables())) {
-        printTerm("$term")
     }
 }
 
@@ -60,6 +57,7 @@ class ExprTest {
         println(omega.cons(id).cons(Var("haha")).cons(Var("x").app(Var("y"))).cons(omegaBig))
         println("list_empty = $list_empty")
         println("list_size = $list_size_lambdaChurch")
+        println("3+1=${letSum(num(3) plus num(1))}")
 
     }
 
@@ -79,37 +77,41 @@ class ExprTest {
 
     @Test
     fun reductionTest_null1() {
-        assertNull(whnfBetaReduction0(id))
+        assertNull(id.toProgram().hnfBetaReduction())
     }
     @Test
     fun reductionTest_null2() {
-        assertNull(whnfBetaReduction0(K))
+        assertNull(K.toProgram().hnfBetaReduction())
     }
     @Test
     fun reductionTest_null3() {
-        assertNull(whnfBetaReduction0(lamChurch(7)))
+        assertNull(lamChurch(7).toProgram().hnfBetaReduction())
+    }
+    @Test
+    fun reductionTest_suc2_is_not_HNF() {
+        assertNotNull(lamChurchSuc(lamChurch(2)).toProgram().hnfBetaReduction())
     }
     @Test
     fun reductionTest_suc2_is_WHNF() {
-        assertNull(whnfBetaReduction0(lamChurchSuc(lamChurch(2))))
+        assertNull(lamChurchSuc(lamChurch(2)).toProgram().whnfBetaReduction())
     }
 
     @Test
     fun reductionTest_omegaToOmega() {
-        assertTrue(whnfBetaReduction0(omegaBig)!!.isomorphic(omegaBig))
+        assertTrue(omegaBig.toProgram().hnfBetaReduction()?.expression?.isomorphic(omegaBig) ?: false)
     }
     @Test
     fun whnfTest_suc2xy_is_3xy() {
         val x = Var("p")
         val y = Var("q")
 
-        val suc2xy = lamChurchSuc(lamChurch(2)).app(x).app(y).renamedBoundVariables()
-        val suc2xy_nf = whnf0(suc2xy)
+        val suc2xy = lamChurchSuc(lamChurch(2)).app(x).app(y).toProgram()
+        val suc2xy_nf = suc2xy.whnf().expression
         stepByStepPrinter(suc2xy)
         println("$suc2xy ->* $suc2xy_nf")
 
-        val c3xy = lamChurch(3).app(x).app(y).renamedBoundVariables()
-        val c3xy_nf = whnf0(c3xy)
+        val c3xy = lamChurch(3).app(x).app(y).toProgram()
+        val c3xy_nf = c3xy.whnf().expression
         stepByStepPrinter(c3xy)
         println("$c3xy ->* $c3xy_nf")
 
@@ -119,9 +121,9 @@ class ExprTest {
 
     @Test
     fun patternMatching_list_xyz_empty() {
-        stepByStepPrinter(list_empty.app(list_xyz))
-        val res = whnf0(list_empty.app(list_xyz).renamedBoundVariables())
-        assertTrue(res.isomorphic(lamChurchZ))
+        val prog = list_empty.fmap{app(list_xyz)}
+        stepByStepPrinter(prog)
+        assertTrue(prog.whnf().expression.isomorphic(lamChurchZ))
     }
 
     @Test
@@ -132,7 +134,7 @@ class ExprTest {
         val term = list_size_lambdaChurch.fmap { app(list_xyz).app(u).app(v) }
         stepByStepPrinter(term)
         val res = term.whnf().expression
-        val cmpWith = whnf0(lamChurch(3).app(u).app(v))
+        val cmpWith = lamChurch(3).app(u).app(v).toProgram().whnf().expression
         assertTrue(res.isomorphic(cmpWith))
     }
 
@@ -142,7 +144,102 @@ class ExprTest {
         stepByStepPrinter(term)
         // to break WHNF add some globals
         val res = term.hnf().expression
-        val cmpWith = whnf0(num(3))
+        val cmpWith = num(3)
         assertTrue(res.isomorphic(cmpWith))
+    }
+
+
+    // church numerals tests
+    @Test
+    fun churchNumerals_addOneLeft() {
+        val term = num(3) plus num(1)
+        val prog = Program.convertToProgram(letSum(term))
+        stepByStepPrinter(prog)
+        // assert equals
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num(4)))
+    }
+
+    @Test
+    fun churchNumerals_addOneRight() {
+        val term = num(1) plus num(3)
+        val prog = Program.convertToProgram(letSum(term))
+        stepByStepPrinter(prog)
+        // assert equals
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num(4)))
+    }
+
+
+    @Test
+    fun churchNumerals_addSomeNaturals() {
+        fun testWith(i : Int, j : Int) {
+            val term = num(i) plus num(j)
+            val prog = Program.convertToProgram(letSum(term))
+            // assert equals
+            val res = prog.hnf().expression
+            assertTrue(res.isomorphic(num(i + j)))
+        }
+        for (i in 0..10) {
+            for (j in 0..10) {
+                testWith(i, j)
+            }
+        }
+    }
+
+
+    @Test
+    fun churchNumerals_multiplyByOneLeft() {
+        val term = num(1) mult num(3)
+        val prog = Program.convertToProgram(letMul(letSum(term)))
+        stepByStepPrinter(prog)
+        // assert equals
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num(3)))
+    }
+
+
+    @Test
+    fun churchNumerals_multiplyByOneRight() {
+        val term = num(3) mult num(1)
+        val prog = Program.convertToProgram(letMul(letSum(term)))
+        stepByStepPrinter(prog)
+        // assert equals
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num(3)))
+    }
+
+
+    @Test
+    fun churchNumerals_multiplySomeNaturals() {
+        fun testWith(i : Int, j : Int) {
+            val term = num(i) mult num(j)
+            val prog = Program.convertToProgram(letMul(letSum(term)))
+            // assert equals
+            val res = prog.hnf().expression
+            assertTrue(res.isomorphic(num(i * j)))
+        }
+        for (i in 0..10) {
+            for (j in 0..10) {
+                testWith(i, j)
+            }
+        }
+    }
+
+
+    @Test
+    fun churchNumerals_multiplyLargeNumbers() {
+        val term = num(50) mult num(12)
+        val prog = Program.convertToProgram(letMul(letSum(term)))
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num(50 * 12)))
+    }
+
+    @Test
+    fun churchNumerals_multiplyLargeNumbersInv() {
+        val term = num(12) mult num(50)
+        val prog = Program.convertToProgram(letMul(letSum(term)))
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num(50 * 12)))
     }
 }
