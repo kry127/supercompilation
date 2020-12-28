@@ -22,11 +22,11 @@
 - [x] Folding (if expr is renaming, make backtrace edge)
 - [x] Let-abstraction generalization
 - [x] Build program process tree
-- [ ] Extract program from process tree
+- [x] Extract program from process tree
 - [ ] **Tests**
 
 ### Optional
-- [ ] Lambda-lifting preprocessing (move lambdas to `where` block and name them)
+- [x] Lambda-lifting preprocessing (move lambdas to `where` block and name them)
 - [ ] Tree parser
 - [ ] CLI
 - [ ] KMP Test
