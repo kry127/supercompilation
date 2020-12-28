@@ -16,11 +16,13 @@
 ```(\x.x x)(\x.x x) <=> f f where f = \x.x x```
 
 #### pt. 3 -- tree operations
-- [ ] Driving
-- [ ] Whistle(b, ◁) (a.k.a. _find_)
+- [x] Driving
+- [x] Whistle(b, ◁) (a.k.a. _find_)
   > find ancestor node a such that a ◁ b
-- [ ] Folding (if expr is renaming, make backtrace arc)
-- [ ] Let-abstraction generalization
+- [x] Folding (if expr is renaming, make backtrace edge)
+- [x] Let-abstraction generalization
+- [x] Build program process tree
+- [ ] Extract program from process tree
 - [ ] **Tests**
 
 ### Optional
@@ -37,7 +39,7 @@ sum (squares (upto 1 n)) 0
   sum     = \xs . \a .
           case xs of
           []     -> a
-          x : xs -> x + sum xs a
+          x : xs -> sum xs (x + a)
           esac
           
   squares = \xs.
