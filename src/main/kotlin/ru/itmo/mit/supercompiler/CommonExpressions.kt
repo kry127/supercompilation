@@ -73,7 +73,7 @@ object CommonExpressions {
         }.toProgram()
 
     // program example
-    fun sumSquaresN(N : Int) : Program {
+    fun sumSquaresN(N : Expr) : Program {
 
         val fnames = listOf("sum", "squares", "upto")
         val funcRefs = fnames.map { Function(it) }
@@ -110,7 +110,7 @@ object CommonExpressions {
         }
 
         val funcDefs = listOf(sum(), squares(), upto())
-        val expr = fSum app (fSquares app (fUpto app num(1) app num(N))) app zero
+        val expr = fSum app (fSquares app (fUpto app num(1) app N)) app zero
         return Program.convertToProgram(expr, fnames.zip(funcDefs).toMap())
     }
 

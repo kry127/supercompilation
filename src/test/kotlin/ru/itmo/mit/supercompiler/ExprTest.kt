@@ -306,7 +306,7 @@ class ExprTest {
     @Test
     fun sampleProgram_output() {
         val N = 1
-        val prog = sumSquaresN(N)
+        val prog = sumSquaresN(num(N))
         stepByStepPrinter(prog)
         val res = prog.hnf().expression
         assertTrue(res.isomorphic(num(1)))
@@ -315,7 +315,7 @@ class ExprTest {
     // sample program -- sumSquares test
     @Test(dataProvider = "tenNaturals")
     fun sampleProgram_testSumSquares(N : Int) {
-        val prog = sumSquaresN(N)
+        val prog = sumSquaresN(num(N))
         val res = prog.hnf().expression
         assertTrue(res.isomorphic(num((1..N).map { it*it }.sum())))
     }

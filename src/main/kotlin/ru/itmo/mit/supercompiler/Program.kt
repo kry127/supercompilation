@@ -24,24 +24,28 @@ class Program private constructor(val expression: Expr, val where: Where) {
                              globals : Map<String, Expr> = mapOf(),
                              variablePrefix : String = "p") : Program {
             val ctx = mutableMapOf<String, Expr>()
-            fun visitor(expr : Expr) : Expr {
-                return when(expr) {
+            fun Expr.visitor() : Expr {
+                return when(this) {
                     is Let -> {
-                        if (expr.name in ctx) {
-                            val newName = Generator.numberedVariables(expr.name) { !(it in ctx) }.first()
-                            ctx += newName to expr.definition
+                        if (name in ctx) {
+                            val newName = Generator.numberedVariables(name) { !(it in ctx) }.first()
+                            ctx += newName to definition
                             // substitute function name
-                            expr.body.substitudeFunName(expr.name, newName)
+                            body.substitudeFunName(name, newName).visitor()
                         } else {
-                            ctx += expr.name to expr.definition
-                            expr.body
+                            ctx += name to definition
+                            body.visitor()
                         }
                     }
-                    else -> expr
+                    is Application -> Application(lhs.visitor(), rhs.visitor())
+                    is Lambda -> Lambda(name, body.visitor())
+                    is Case -> Case(match.visitor(), branches.map { (p, e) -> p to e.visitor() })
+                    is Constructor -> Constructor(name, args.map { e -> e.visitor() })
+                    else -> this
                 }
             }
             val preparedExpression = expression.infiltrateGlobals(globals).renamedBoundVariables(variablePrefix)
-            return Program(visitor(preparedExpression), ctx)
+            return Program(preparedExpression.visitor(), ctx.toMap())
         }
 
         fun Expr.substitudeFunName(from : String, to : String) : Expr {

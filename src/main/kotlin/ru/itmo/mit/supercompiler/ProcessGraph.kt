@@ -16,14 +16,17 @@ class ProcessGraph private constructor(program: Program) {
         }
     }
 
+    private val nodeNameGenerator = Generator.numberedVariables("node").iterator()
+
+    // initialize set of unprocessed nodes
+    private val unprocessed : MutableSet<Node> = mutableSetOf()
     // initialize with target expression and global functions context 'where'
     private var root : Node = Node(program.expression, null)
     private val where : Where = program.where
-    // initialize set of unprocessed nodes
-    private val unprocessed : MutableSet<Node> = mutableSetOf()
     // and even initialize proper names generator, so no collisions occur
     private val nameGen = Generator.numberedVariables("s",
         program.expression.boundVars + program.expression.freeVars + where.keys).iterator()
+
 
     init {
         // after that, initialization continues with building process tree (potentially infinite process)
@@ -47,6 +50,7 @@ class ProcessGraph private constructor(program: Program) {
             // place yourself in unprocessed list :)
             unprocessed.add(this)
         }
+        val name = nodeNameGenerator.next() // name node for dump purpose
 
         val expr get() = expression // expose read only property
         val backedge get() = backedgeParent
@@ -54,7 +58,7 @@ class ProcessGraph private constructor(program: Program) {
         val backedged : List<Node> get() = getBackedged(this)
 
         fun getBackedged(to: Node) : List<Node> {
-            val res = children.flatMap { getBackedged(to) }
+            val res = children.flatMap { it.getBackedged(to) }
             if (backedgeParent == to) {
                 return res + setOf(this)
             }
@@ -69,17 +73,15 @@ class ProcessGraph private constructor(program: Program) {
         val nontrivial_func = expression.isNontrivial().first
         val nontrivial_case = expression.isNontrivial().second
         val nontrivial = expression.isNontrivial().let { it.first || it.second }
-        val trivial = !nontrivial
+        val trivial = !nontrivial && !processed
 
         tailrec fun Expr.isNontrivial() : Pair<Boolean, Boolean> {
             when (this) {
+                is Var -> return false to true
                 is Function -> return true to false
-                is Case ->
-                    if (match.asVariableApplications() != null) {
-                        return false to true // if matching something indestructable, it is nontrivial
-                    } else {
-                        return match.isNontrivial() // con := case con of ...
-                    }
+                is Case -> {
+                    return match.isNontrivial() // con := case con of ...
+                }
                 is Application -> return lhs.isNontrivial() // con := con e
                 else -> return false to false // trivial in other cases
             }
@@ -100,7 +102,9 @@ class ProcessGraph private constructor(program: Program) {
          */
         fun drive() {
             if (!children.isEmpty()) error("The node have been driven twice!")
+//            println("Driving expr: $expr")
             children.addAll(expression.driveRec())
+//            println("Got children: ${children.map{it.expr}}")
         }
 
         /**
@@ -120,8 +124,12 @@ class ProcessGraph private constructor(program: Program) {
                 // 1. local variable
                 // 2. or multiple applications to local variable:
                 is Application -> {
-                    // look up for head, if it is variable in head position, fold arguments to the list
-                    asVariableApplications()?.let { lst -> return lst.map { e -> Node(e, this@Node)} }
+                    // look up for head
+                    val (head, varApp) = asApplicationList()
+                    // if it is variable in head position, fold arguments to the list
+                    if (head is Var) {
+                        varApp.map { e -> Node(e, this@Node)}
+                    }
                 }
                 // 3. or constructor
                 is Constructor -> return args.map {Node(it, this@Node)}
@@ -129,13 +137,18 @@ class ProcessGraph private constructor(program: Program) {
                 is Lambda -> return listOf(Node(body, this@Node))
             }
             // otherwise, process reduction in context
-            driveBetaReduction()?.let { return listOf(it) }
+            val reducedByBeta = driveBetaReduction()
+            reducedByBeta?.let { return listOf(it) }
             // otherwise, process nontrivial case
             nonTrivialCase()?.let { (head, branches) ->
                 childrenPat = branches.map { (p, _) -> p} // we make this nontrivial case node, so remember patterns
-                listOf(head) + branches.map { (_, e) -> e } // return all collected nodes + head node
+                val children = listOf(head) + branches.map { (_, e) -> Node(e, this@Node) } // return all collected nodes + head node
+                return children
             }
-            error("Driving exhausted. Maybe the term is invalid?")
+            // error("Driving exhausted. Maybe the term is invalid?")
+            // maybe this term is stuck actually :)
+//            println("WARNING: Found stuck term: $expr")
+            return(listOf())
         }
 
         /**
@@ -145,7 +158,7 @@ class ProcessGraph private constructor(program: Program) {
          */
         private fun Expr.driveBetaReduction() : Node? {
             when (this) {
-                is Function -> return Node(where[name] ?: error("No such global $name"), this@Node, transition = true)
+                is Function -> return where[name]?.let {Node( it , this@Node, transition = true)}
                 is Application -> {
                     if (lhs is Lambda) {
                         // con<(\v -> body) @ rhs>   =>   con< body {v := rhs} >
@@ -184,8 +197,8 @@ class ProcessGraph private constructor(program: Program) {
             // nontrivial case...
             when (this) {
                 is Case -> {
-                    val varApp = match.asVariableApplications()
-                    if (varApp != null) {
+                    val (head, varApp) = match.asApplicationList()
+                    if (head is Var || head is Function && head.builtin) {
 
                         return Pair(
                             Node(match, this@Node), // the node we match
@@ -201,18 +214,6 @@ class ProcessGraph private constructor(program: Program) {
                     return lhs.nonTrivialCase()?.let {rewrapToContext(it) { e -> Application(e, rhs)} }
                 }
                 else -> return null // trivial in other cases
-            }
-        }
-
-        /**
-         * This function collects applications to single list if there is
-         * a variable in the head position. In other case it returns null
-         */
-        private fun Expr.asVariableApplications() : List<Expr>? {
-            return when (this) {
-                is Application -> lhs.asVariableApplications()?.plus(rhs)
-                is Var -> listOf(this)
-                else -> null
             }
         }
 
@@ -323,7 +324,8 @@ class ProcessGraph private constructor(program: Program) {
                 // 2. or multiple applications to local variable:
                 is Application -> {
                     // if variable is in head position, then fold variable with applications
-                    if (expr.asVariableApplications() != null) {
+                    val (head, _) = expr.asApplicationList()
+                    if (head is Var || head is Function && head.builtin) {
                         return children.drop(1).fold(children.first().extractProgram(dict)) { l, r -> l app r.extractProgram(dict)}
                     }
                 }
@@ -333,7 +335,10 @@ class ProcessGraph private constructor(program: Program) {
                 is Lambda -> return Lambda(e.name, children.first().extractProgram(dict))
             }
 
-            error("Program extraction exhausted...")
+            // error("Program extraction exhausted...")
+            // maybe this term is stuck actually :)
+//            print("WARNING [extraction]: Found stuck term: $expr")
+            return(expr)
         }
 
         /**
@@ -366,9 +371,10 @@ class ProcessGraph private constructor(program: Program) {
          * The first argument is expression from uppermost node, the second argument is from bottommost node
          */
         fun ancestor(predicate : (Expr, Expr) -> Boolean) : Node? {
-            val res = parent
+            var res = parent
             while (res != null) {
                 if (predicate(res.expression, expression)) return res
+                res = res.parent
             }
             return null
         }
@@ -376,6 +382,23 @@ class ProcessGraph private constructor(program: Program) {
         // folds e2 expression to the receiver
         infix fun fold(e2 : Node) {
             e2.backedgeParent = this
+        }
+
+        /**
+         * Dumps subtree
+         */
+        fun dump(sb : StringBuilder) : StringBuilder {
+            sb.appendLine("{")
+            sb.appendLine("\"name\": \"$name\",")
+            sb.appendLine("\"expr\": \"${expr.toString().replace('\n', ' ')}\",")
+            sb.appendLine("\"trivial\": \"$trivial\",")
+            sb.appendLine("\"transition\": \"$transition\",")
+            sb.appendLine("\"children\": [${children.map { it.name }.joinToString ("\", \"", "\"", "\"" )}],")
+            sb.appendLine("\"parent\": \"${parent?.name}\",")
+            sb.appendLine("\"backedge\": \"$backedge\"")
+            sb.appendLine("},")
+            children.map {it.dump(sb)}
+            return sb
         }
 
     }
@@ -388,7 +411,7 @@ class ProcessGraph private constructor(program: Program) {
             root = nodeBuilder(null)
             return true
         }
-        return old.replace(old, nodeBuilder)
+        return root.replace(old, nodeBuilder)
     }
 
     /**
@@ -404,6 +427,15 @@ class ProcessGraph private constructor(program: Program) {
      * Returns amount of steps just for curiosity
      */
     private fun buildProcessTree() : Int {
+        fun ddump(x : Int) {
+            println()
+            println("=================")
+            println("Step #$x")
+            println("=================")
+            println(dump())
+            println("=================")
+            println()
+        }
         var i = 0
         while (true) {
             val processing = unprocessed.firstOrNull() ?: return i // end function when no processing nodes left
@@ -427,7 +459,7 @@ class ProcessGraph private constructor(program: Program) {
                 continue
             }
 
-            val whistleAncestor = processing.ancestor {ancestor, proc -> proc homoCoupling ancestor}
+            val whistleAncestor = processing.ancestor {ancestor, proc -> ancestor homoCoupling proc}
             if (whistleAncestor != null) {
                 abstract(whistleAncestor, processing)
                 continue
@@ -444,4 +476,15 @@ class ProcessGraph private constructor(program: Program) {
      */
     private fun extractProgram() = root.extractProgram(mapOf())
 
+
+    /**
+     * Dumps graph
+     */
+    fun dump() : String {
+        val sb = StringBuilder()
+        sb.appendLine("[")
+        root.dump(sb)
+        sb.appendLine("]")
+        return sb.toString()
+    }
 }
