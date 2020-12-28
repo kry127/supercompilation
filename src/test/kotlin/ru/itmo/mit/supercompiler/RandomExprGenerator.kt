@@ -4,6 +4,10 @@ import ru.itmo.mit.supercompiler.Constructor.Companion.cons
 import ru.itmo.mit.supercompiler.Constructor.Companion.nil
 import ru.itmo.mit.supercompiler.Constructor.Companion.num
 import ru.itmo.mit.supercompiler.Constructor.Companion.zero
+import ru.itmo.mit.supercompiler.Pattern.Companion.patCons
+import ru.itmo.mit.supercompiler.Pattern.Companion.patNil
+import ru.itmo.mit.supercompiler.Pattern.Companion.patSuc
+import ru.itmo.mit.supercompiler.Pattern.Companion.patZero
 import kotlin.random.Random
 import kotlin.random.nextInt
 
@@ -31,10 +35,10 @@ class RandomExprGenerator(val varNames: Set<String>, val funNames: Set<String>, 
 
     fun generateRandomPattern() : Pattern {
         return when(rnd.nextInt(0..4)) {
-            0 -> nil.toPattern().first
-            1 -> makePattern("Cons", *(1..2).map{varNames.random(rnd)}.toTypedArray())
-            2 -> zero.toPattern().first
-            3 -> makePattern("S", varNames.random(rnd))
+            0 -> patNil
+            1 -> patCons(*(1..2).map{varNames.random(rnd)}.toTypedArray())
+            2 -> patZero
+            3 -> patSuc(varNames.random(rnd))
             else -> makePattern(ktorNames.random(rnd), *(1..maxWidth).map{varNames.random(rnd)}.toTypedArray())
         }
 

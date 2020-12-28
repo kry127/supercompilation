@@ -8,6 +8,14 @@ import ru.itmo.mit.supercompiler.Function.Companion.evalBuiltinApplication
 class Program private constructor(val expression: Expr, val where: Where) {
 
     companion object {
+
+        /**
+         * Use this function to convert expression to program
+         * All globals added to the expression as letRec expressions
+         */
+        private fun Expr.infiltrateGlobals(globals : Map<String, Expr>) : Expr {
+            return globals.entries.fold(this) { e, (fname, fdef) -> Let(fname, fdef, e)}
+        }
         /**
          * Use this function to convert expression to program
          * where all 'letrec' constructions have been moved to 'where' context
@@ -15,7 +23,7 @@ class Program private constructor(val expression: Expr, val where: Where) {
         fun convertToProgram(expression: Expr,
                              globals : Map<String, Expr> = mapOf(),
                              variablePrefix : String = "p") : Program {
-            val ctx = globals.toMutableMap()
+            val ctx = mutableMapOf<String, Expr>()
             fun visitor(expr : Expr) : Expr {
                 return when(expr) {
                     is Let -> {
@@ -32,7 +40,8 @@ class Program private constructor(val expression: Expr, val where: Where) {
                     else -> expr
                 }
             }
-            return Program(visitor(expression.renamedBoundVariables(variablePrefix)), ctx)
+            val preparedExpression = expression.infiltrateGlobals(globals).renamedBoundVariables(variablePrefix)
+            return Program(visitor(preparedExpression), ctx)
         }
 
         fun Expr.substitudeFunName(from : String, to : String) : Expr {

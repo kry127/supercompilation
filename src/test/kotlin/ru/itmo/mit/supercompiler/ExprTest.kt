@@ -6,8 +6,6 @@ import ru.itmo.mit.supercompiler.CommonExpressions.K
 import ru.itmo.mit.supercompiler.CommonExpressions.K2
 import ru.itmo.mit.supercompiler.CommonExpressions.Num.letMul
 import ru.itmo.mit.supercompiler.CommonExpressions.Num.letSum
-import ru.itmo.mit.supercompiler.CommonExpressions.Num.mult
-import ru.itmo.mit.supercompiler.CommonExpressions.Num.plus
 import ru.itmo.mit.supercompiler.CommonExpressions.lamChurch
 import ru.itmo.mit.supercompiler.CommonExpressions.lamChurchSuc
 import ru.itmo.mit.supercompiler.CommonExpressions.lamChurchZ
@@ -18,9 +16,21 @@ import ru.itmo.mit.supercompiler.CommonExpressions.list_size_lambdaChurch
 import ru.itmo.mit.supercompiler.CommonExpressions.list_xyz
 import ru.itmo.mit.supercompiler.CommonExpressions.omega
 import ru.itmo.mit.supercompiler.CommonExpressions.omegaBig
+import ru.itmo.mit.supercompiler.CommonExpressions.sumSquaresN
 import ru.itmo.mit.supercompiler.Constructor.Companion.cons
+import ru.itmo.mit.supercompiler.Constructor.Companion.fls
 import ru.itmo.mit.supercompiler.Constructor.Companion.nil
 import ru.itmo.mit.supercompiler.Constructor.Companion.num
+import ru.itmo.mit.supercompiler.Constructor.Companion.tru
+import ru.itmo.mit.supercompiler.Function.Companion.leq
+import ru.itmo.mit.supercompiler.Function.Companion.mult
+import ru.itmo.mit.supercompiler.Function.Companion.plus
+import org.testng.annotations.TestInstance
+
+import org.testng.annotations.DataProvider
+
+
+
 
 fun printTerm(term : String) {
     if (term.contains('\n')) {
@@ -32,9 +42,12 @@ fun printTerm(term : String) {
     }
 }
 
-fun stepByStepPrinter(expr : Program) {
+fun stepByStepPrinter(expr : Program, maxReductions : Int = 200) {
     println("Step by step reduction of $expr")
+    var reductionsLeft = maxReductions
     for (term in expr.hnfSeq()) {
+        if (reductionsLeft <= 0) error("Reduction limit exceeded")
+        reductionsLeft -= 1
         val toPrint = "$term"
         printTerm("$term")
     }
@@ -187,7 +200,6 @@ class ExprTest {
         }
     }
 
-
     @Test
     fun churchNumerals_multiplyByOneLeft() {
         val term = num(1) mult num(3)
@@ -229,7 +241,7 @@ class ExprTest {
     @Test
     fun churchNumerals_multiplyLargeNumbers_builtins() {
         val term = num(50) mult num(12)
-        val prog = Program.convertToProgram(letMul(letSum(term)))
+        val prog = Program.convertToProgram(term)
         val res = prog.hnf().expression
         assertTrue(res.isomorphic(num(50 * 12)))
     }
@@ -237,7 +249,7 @@ class ExprTest {
     @Test
     fun churchNumerals_multiplyLargeNumbersInv_builtins() {
         val term = num(12) mult num(50)
-        val prog = Program.convertToProgram(letMul(letSum(term)))
+        val prog = Program.convertToProgram(term)
         val res = prog.hnf().expression
         assertTrue(res.isomorphic(num(50 * 12)))
     }
@@ -257,4 +269,61 @@ class ExprTest {
         val res = prog.hnf_noBuiltins().expression
         assertTrue(res.isomorphic(num(50 * 12)))
     }
+
+
+    // Test inequalities
+    @Test
+    fun churchNumerals_3_leq_1() {
+        val term = num(3) leq num(1)
+        val prog = Program.convertToProgram(term)
+        stepByStepPrinter(prog)
+        // assert equals
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(fls))
+    }
+
+    @Test
+    fun churchNumerals_1_leq_3() {
+        val term = num(1) leq num(3)
+        val prog = Program.convertToProgram(term)
+        stepByStepPrinter(prog)
+        // assert equals
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(tru))
+    }
+
+    @Test
+    fun churchNumerals_2_leq_2() {
+        val term = num(2) leq num(2)
+        val prog = Program.convertToProgram(term)
+        stepByStepPrinter(prog)
+        // assert equals
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(fls))
+    }
+
+    // sample program -- sumSquares test
+    @Test
+    fun sampleProgram_output() {
+        val N = 1
+        val prog = sumSquaresN(N)
+        stepByStepPrinter(prog)
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num(1)))
+    }
+
+    // sample program -- sumSquares test
+    @Test(dataProvider = "tenNaturals")
+    fun sampleProgram_testSumSquares(N : Int) {
+        val prog = sumSquaresN(N)
+        val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num((1..N).map { it*it }.sum())))
+    }
+
+    @DataProvider(name = "tenNaturals")
+    fun getData(@TestInstance `object`: Any): Array<Array<Any>> {
+        val data = (1..20).map { arrayOf(it as Any) }.toTypedArray()
+        return data
+    }
+
 }

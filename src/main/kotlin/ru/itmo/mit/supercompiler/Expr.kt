@@ -165,7 +165,7 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
         fun num(n : Int) : Constructor = if (n == 0) zero else (num(n-1).succ())
 
         val tru = Constructor("True", listOf())
-        val fls = Constructor("Fls", listOf())
+        val fls = Constructor("False", listOf())
     }
     init {
         // check constructor name.
@@ -212,7 +212,7 @@ data class Function(val name : String) : Expr(10, Assoc.NONE,true) {
     companion object {
         val sumFname = "+"
         val mulFname = "*"
-        val lessFname = "<"
+        val leqFname = "<"
 
         fun Expr.evalBuiltinApplication() : Expr? {
             val (head, applicands) = asApplicationList()
@@ -226,13 +226,18 @@ data class Function(val name : String) : Expr(10, Assoc.NONE,true) {
                     return when (head.name) {
                         sumFname -> num(v1 + v2)
                         mulFname -> num(v1 * v2)
-                        lessFname -> if (v1 < v2) tru else fls
+                        leqFname -> if (v1 < v2) tru else fls
                         else -> return null
                     }
                 }
             }
             return null
         }
+
+
+        infix fun Expr.plus(other : Expr) = Function(sumFname).app(this).app(other)
+        infix fun Expr.mult(other : Expr) = Function(mulFname).app(this).app(other)
+        infix fun Expr.leq(other : Expr)  = Function(leqFname).app(this).app(other)
     }
 
     val builtin = name in listOf("+", "*", "<")
@@ -282,6 +287,14 @@ data class Let(val name : String, val definition : Expr, val body : Expr) : Expr
  * Pattern is not an expression, but it is a part of 'Case' statement
  */
 data class Pattern(val name : String, val args : List<Var>) {
+    companion object {
+        val patNil = Pattern("Nil", listOf())
+        fun patCons(vararg vars : String) = Pattern("Cons", vars.map { Var(it) })
+        val patZero = Pattern("Z", listOf())
+        fun patSuc(vname: String) = Pattern("S", listOf(Var(vname)))
+        val patTrue = Pattern("True", listOf())
+        val patFalse = Pattern("False", listOf())
+    }
     init {
         // check constructor name
         Constructor(name, args)
@@ -309,4 +322,5 @@ data class Pattern(val name : String, val args : List<Var>) {
         if (ctor.name != name || args.size != ctor.args.size) return null
         return args.zip(ctor.args)
     }
+
 }
