@@ -1,11 +1,11 @@
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.mult
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.plus
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.cons
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.nil
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.succ
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.zero
+import ru.itmo.mit.supercompiler.CommonExpressions.Num.mult
+import ru.itmo.mit.supercompiler.CommonExpressions.Num.plus
+import ru.itmo.mit.supercompiler.Constructor.Companion.cons
+import ru.itmo.mit.supercompiler.Constructor.Companion.nil
+import ru.itmo.mit.supercompiler.Constructor.Companion.succ
+import ru.itmo.mit.supercompiler.Constructor.Companion.zero
 
 /**
  * This object contains common expressions in lambda calculus

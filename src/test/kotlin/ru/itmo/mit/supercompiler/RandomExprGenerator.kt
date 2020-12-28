@@ -1,9 +1,9 @@
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.cons
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.nil
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.num
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.zero
+import ru.itmo.mit.supercompiler.Constructor.Companion.cons
+import ru.itmo.mit.supercompiler.Constructor.Companion.nil
+import ru.itmo.mit.supercompiler.Constructor.Companion.num
+import ru.itmo.mit.supercompiler.Constructor.Companion.zero
 import kotlin.random.Random
 import kotlin.random.nextInt
 

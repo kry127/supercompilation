@@ -1,6 +1,6 @@
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
-import ru.itmo.mit.supercompiler.ast.Generator.numberedVariables
+import ru.itmo.mit.supercompiler.Generator.numberedVariables
 
 enum class Assoc {LEFT, RIGHT, NONE, IGNORE}
 
@@ -64,7 +64,8 @@ sealed class Expr(open val priority : Int, open val assoc : Assoc, open val leaf
             is Case -> Case(match.renameWithContext(nameGenerator, renaming),
                             branches.map { (p, e) ->
                                 val localRenaming = p.args.associate { Pair(it.name, nameGenerator.next()) }
-                                Pair(Pattern(p.name, p.args.map {Var(localRenaming[it.name] ?: "")}),
+                                Pair(
+                                    Pattern(p.name, p.args.map { Var(localRenaming[it.name] ?: "") }),
                                      e.renameWithContext(nameGenerator, renaming + localRenaming))
                             })
             is Let -> {
@@ -94,7 +95,7 @@ sealed class Expr(open val priority : Int, open val assoc : Assoc, open val leaf
     fun boundVariables() : Set<String> {
         return when (this) {
             is Var -> setOf()
-            is Constructor -> args.map (Expr::boundVariables).fold(setOf(), {b, a -> a + b})
+            is Constructor -> args.map (Expr::boundVariables).fold(setOf(), { b, a -> a + b})
             is Function -> setOf()
             is Lambda -> setOf(name) + body.boundVariables()
             is Application -> lhs.boundVariables() + rhs.boundVariables()

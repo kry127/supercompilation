@@ -1,9 +1,9 @@
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
 import org.testng.Assert.assertTrue
 import org.testng.annotations.Test
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.cons
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.nil
+import ru.itmo.mit.supercompiler.Constructor.Companion.cons
+import ru.itmo.mit.supercompiler.Constructor.Companion.nil
 
 class GeneralizationTest {
 

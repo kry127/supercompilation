@@ -1,9 +1,9 @@
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
 /**
  * Мы рассматриваем программу как корневое выражение с определёнными в контексте функциями
  */
-class Program private constructor(val expression: Expr, private val where: Where) {
+class Program private constructor(val expression: Expr, val where: Where) {
 
     companion object {
         /**
@@ -53,7 +53,7 @@ class Program private constructor(val expression: Expr, private val where: Where
         expression, where.mapValues {(name, body) -> body.renamedBoundVariables(prefix, expression.freeVars + funcVars + name)}
     )
 
-    fun toExpr() = where.entries.fold (expression) {e, (f, b) -> Let(f, b, e)}
+    fun toExpr() = where.entries.fold (expression) {e, (f, b) -> Let(f, b, e) }
 
     override fun toString(): String {
         if (where.isEmpty()) {
@@ -81,9 +81,9 @@ class Program private constructor(val expression: Expr, private val where: Where
             is Var -> return null
             is Function -> return null
 
-            is Lambda -> return body.extractLetRec()?.fmap{Lambda(name, this)}
-            is Application -> return lhs.extractLetRec()?.fmap{Application(this, rhs)}
-                                  ?: rhs.extractLetRec()?.fmap{Application(rhs, this)}
+            is Lambda -> return body.extractLetRec()?.fmap{ Lambda(name, this) }
+            is Application -> return lhs.extractLetRec()?.fmap{ Application(this, rhs) }
+                                  ?: rhs.extractLetRec()?.fmap{ Application(rhs, this) }
             is Constructor ->  {
                 for (i in args.indices) {
                     val res = args[i].extractLetRec()
@@ -118,16 +118,16 @@ class Program private constructor(val expression: Expr, private val where: Where
             // try to extract let expression
             is Let -> this.extractLetRec()
 
-            is Function -> where[name]?.let { Program(it, where) }
+            is Function -> where[name]?.let { Program(it, where) } // unfold
 
             is Application -> {
                 if (lhs is Lambda) {
                     return lhs.body.substituteVar(Var(lhs.name), rhs).let { Program(it, where) }
                 } else {
-                    return lhs.whnfBetaReduction()?.let {Program(Application(it.expression, rhs), where)}
+                    return lhs.whnfBetaReduction()?.let { Program(Application(it.expression, rhs), where) }
                 }
             }
-            is Case -> match.whnfBetaReduction()?.let{Program(Case(it.expression, branches), where)}
+            is Case -> match.whnfBetaReduction()?.let{ Program(Case(it.expression, branches), where) }
                 ?: branches.find { (p, _) -> p.cover(match) }
                     ?.let { (p, e) -> p.substitutionData(match)?.fold(e) {acc, (v, b) -> acc.substituteVar(v, b)} }
                     ?.let { Program(it, where) }
@@ -164,11 +164,11 @@ class Program private constructor(val expression: Expr, private val where: Where
                 if (lhs is Lambda) {
                     return lhs.body.substituteVar(Var(lhs.name), rhs).let { Program(it, where) }
                 } else {
-                    return lhs.hnfBetaReduction()?.let {Program(Application(it.expression, rhs), where)}
-                        ?: rhs.hnfBetaReduction()?.let {Program(Application(lhs, it.expression), where)}
+                    return lhs.hnfBetaReduction()?.let { Program(Application(it.expression, rhs), where) }
+                        ?: rhs.hnfBetaReduction()?.let { Program(Application(lhs, it.expression), where) }
                 }
             }
-            is Case -> match.hnfBetaReduction()?.let{Program(Case(it.expression, branches), where)}
+            is Case -> match.hnfBetaReduction()?.let{ Program(Case(it.expression, branches), where) }
                 ?: branches.find { (p, _) -> p.cover(match) }
                     ?.let { (p, e) -> p.substitutionData(match)?.fold(e) {acc, (v, b) -> acc.substituteVar(v, b)} }
                     ?.let { Program(it, where) }

@@ -1,4 +1,4 @@
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
 
 class BoundedVariables (

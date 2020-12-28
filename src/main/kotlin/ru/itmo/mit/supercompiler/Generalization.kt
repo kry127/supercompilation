@@ -1,6 +1,6 @@
 @file:Suppress("NonAsciiCharacters")
 
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
 /**
  * Generalization
@@ -42,8 +42,10 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
             }
 
             // use the same generator to avoid generated variables name collision
-            val gen = Generator.numberedVariables("c",
-                lhs.freeVars union lhs.boundVars union rhs.freeVars union rhs.boundVars).iterator()
+            val gen = Generator.numberedVariables(
+                "c",
+                lhs.freeVars union lhs.boundVars union rhs.freeVars union rhs.boundVars
+            ).iterator()
 
             // all renaming should happen in context of the single name generator for correctness
             val wastefulGeneralization =  gen.generatorGeneralizer(lhs, rhs)
@@ -82,7 +84,7 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
                             patternLeft.args.map {it.name}, patternRight.args.map {it.name})
                         // make the same pattern (both names are equal, and arity of vector)
                         // BUT, variable names are fresh, and the body is generalized :)
-                        Pattern(patternLeft.name, newCommonNames.map {Var(it)}) to rawGeneralization
+                        Pattern(patternLeft.name, newCommonNames.map { Var(it) }) to rawGeneralization
                     }.unzip()
                 // make combined case expression of generalizations
                 return (generalizations + matchGen).flatten { newExprs ->
@@ -106,7 +108,7 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
          */
         private fun Iterator<String>.boundVarGeneralize(lhs : Expr, rhs : Expr, bvl : String, bvr : String) : Pair<String, Generalization> {
             val newName = this.next()
-            val (v1, v2, vn) = listOf(bvl, bvr, newName).map{Var(it)}
+            val (v1, v2, vn) = listOf(bvl, bvr, newName).map{ Var(it) }
             val newExpr1 = lhs.substituteVar(v1, vn)
             val newExpr2 = rhs.substituteVar(v2, vn)
             // we can use abstraction by newName, because domains of substitution are not collide

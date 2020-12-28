@@ -1,6 +1,6 @@
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
-import ru.itmo.mit.supercompiler.ast.Generator.numberedVariables
+import ru.itmo.mit.supercompiler.Generator.numberedVariables
 
 /**
  * Блок 'where' -- это просто отображение из глобального имени в выражение

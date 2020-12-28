@@ -1,26 +1,26 @@
-package ru.itmo.mit.supercompiler.ast
+package ru.itmo.mit.supercompiler
 
 import org.testng.Assert.*
 import org.testng.annotations.Test
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.K
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.K2
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.letMul
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.letSum
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.mult
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.Num.plus
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.lamChurch
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.lamChurchSuc
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.lamChurchZ
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.id
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.list_empty
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.list_size
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.list_size_lambdaChurch
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.list_xyz
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.omega
-import ru.itmo.mit.supercompiler.ast.CommonExpressions.omegaBig
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.cons
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.nil
-import ru.itmo.mit.supercompiler.ast.Constructor.Companion.num
+import ru.itmo.mit.supercompiler.CommonExpressions.K
+import ru.itmo.mit.supercompiler.CommonExpressions.K2
+import ru.itmo.mit.supercompiler.CommonExpressions.Num.letMul
+import ru.itmo.mit.supercompiler.CommonExpressions.Num.letSum
+import ru.itmo.mit.supercompiler.CommonExpressions.Num.mult
+import ru.itmo.mit.supercompiler.CommonExpressions.Num.plus
+import ru.itmo.mit.supercompiler.CommonExpressions.lamChurch
+import ru.itmo.mit.supercompiler.CommonExpressions.lamChurchSuc
+import ru.itmo.mit.supercompiler.CommonExpressions.lamChurchZ
+import ru.itmo.mit.supercompiler.CommonExpressions.id
+import ru.itmo.mit.supercompiler.CommonExpressions.list_empty
+import ru.itmo.mit.supercompiler.CommonExpressions.list_size
+import ru.itmo.mit.supercompiler.CommonExpressions.list_size_lambdaChurch
+import ru.itmo.mit.supercompiler.CommonExpressions.list_xyz
+import ru.itmo.mit.supercompiler.CommonExpressions.omega
+import ru.itmo.mit.supercompiler.CommonExpressions.omegaBig
+import ru.itmo.mit.supercompiler.Constructor.Companion.cons
+import ru.itmo.mit.supercompiler.Constructor.Companion.nil
+import ru.itmo.mit.supercompiler.Constructor.Companion.num
 
 fun printTerm(term : String) {
     if (term.contains('\n')) {
