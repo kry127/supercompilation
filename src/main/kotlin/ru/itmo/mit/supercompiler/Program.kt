@@ -10,12 +10,14 @@ class Program private constructor(val expression: Expr, val where: Where) {
          * Use this function to convert expression to program
          * where all 'letrec' constructions have been moved to 'where' context
          */
-        fun convertToProgram(expression: Expr, variablePrefix : String = "p") : Program {
-            val ctx = mutableMapOf<String, Expr>()
+        fun convertToProgram(expression: Expr,
+                             globals : Map<String, Expr> = mapOf(),
+                             variablePrefix : String = "p") : Program {
+            val ctx = globals.toMutableMap()
             fun visitor(expr : Expr) : Expr {
                 return when(expr) {
                     is Let -> {
-                        return if (expr.name in ctx) {
+                        if (expr.name in ctx) {
                             val newName = Generator.numberedVariables(expr.name) { !(it in ctx) }.first()
                             ctx += newName to expr.definition
                             // substitute function name
