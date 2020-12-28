@@ -1,5 +1,8 @@
 package ru.itmo.mit.supercompiler
 
+import ru.itmo.mit.supercompiler.Constructor.Companion.fls
+import ru.itmo.mit.supercompiler.Constructor.Companion.num
+import ru.itmo.mit.supercompiler.Constructor.Companion.tru
 import ru.itmo.mit.supercompiler.Generator.numberedVariables
 
 enum class Assoc {LEFT, RIGHT, NONE, IGNORE}
@@ -152,7 +155,7 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
 
     constructor(name : String, args : List<Expr>)
     : this(name, args, 9, Assoc.NONE, args.isEmpty())
-    { }
+
     companion object {
         infix fun Expr.cons(other : Expr) = Constructor("Cons", listOf(this, other), 3, Assoc.LEFT, false)
         val nil = Constructor("Nil", listOf(), 10, Assoc.NONE, true)
@@ -160,6 +163,9 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
         fun Expr.succ() = Constructor("S", listOf(this))
         val zero = Constructor("Z", listOf())
         fun num(n : Int) : Constructor = if (n == 0) zero else (num(n-1).succ())
+
+        val tru = Constructor("True", listOf())
+        val fls = Constructor("Fls", listOf())
     }
     init {
         // check constructor name.
@@ -167,6 +173,8 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
         if (name == "Nil" && args.size != 0)  throw error("Empty list constructor has no parameters")
         if (name == "S" && args.size != 1)  throw error("Church successor constructor 'S' accepts only one argument")
         if (name == "Z" && args.size != 0)  throw error("Church zero constructor 'Z' accepts no argument")
+        if (name == "True" && args.size != 0)  throw error("Booleans constructors have no parameters")
+        if (name == "False" && args.size != 0)  throw error("Boolean constructors have no parameters")
         if (!name[0].isUpperCase()) {
             throw RuntimeException("Data constructors should begin with capital letter")
         }
@@ -174,7 +182,7 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
         args.forEach{it.parent = this}
     }
 
-    private fun asChurchNumeral() : Int? {
+    fun asChurchNumeral() : Int? {
         if (name == "S" && args.size == 1) {
             val of = args[0]
             if (of is Constructor) {
@@ -200,7 +208,39 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
 }
 
 data class Function(val name : String) : Expr(10, Assoc.NONE,true) {
+
+    companion object {
+        val sumFname = "+"
+        val mulFname = "*"
+        val lessFname = "<"
+
+        fun Expr.evalBuiltinApplication() : Expr? {
+            val (head, applicands) = asApplicationList()
+            if (head is Function && head.builtin) {
+                if (applicands.size == 2) {
+                    val (e1, e2) = applicands
+                    if (!(e1 is Constructor && e2 is Constructor)) return null
+                    val v1 = e1.asChurchNumeral() ?: return null
+                    val v2 = e2.asChurchNumeral() ?: return null
+
+                    return when (head.name) {
+                        sumFname -> num(v1 + v2)
+                        mulFname -> num(v1 * v2)
+                        lessFname -> if (v1 < v2) tru else fls
+                        else -> return null
+                    }
+                }
+            }
+            return null
+        }
+    }
+
+    val builtin = name in listOf("+", "*", "<")
     override fun toString() = name
+
+
+
+
 }
 
 data class Lambda(val name : String, val body : Expr) : Expr(0, Assoc.RIGHT, false) {

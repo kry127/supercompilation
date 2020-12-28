@@ -1,5 +1,7 @@
 package ru.itmo.mit.supercompiler
 
+import ru.itmo.mit.supercompiler.Function.Companion.evalBuiltinApplication
+
 /**
  * Мы рассматриваем программу как корневое выражение с определёнными в контексте функциями
  */
@@ -107,10 +109,10 @@ class Program private constructor(val expression: Expr, val where: Where) {
     /*
      * One step reduction for program
      */
-    fun whnfBetaReduction() : Program? {
-        return expression.whnfBetaReduction()
+    fun whnfBetaReduction(withBuiltins : Boolean = true) : Program? {
+        return expression.whnfBetaReduction(withBuiltins)
     }
-    private fun Expr.whnfBetaReduction() : Program? {
+    private fun Expr.whnfBetaReduction(withBuiltins : Boolean) : Program? {
         return when (this) {
             // not reducible:
             is Var -> return null
@@ -123,23 +125,26 @@ class Program private constructor(val expression: Expr, val where: Where) {
             is Function -> where[name]?.let { Program(it, where) } // unfold
 
             is Application -> {
+                if (withBuiltins) {
+                    evalBuiltinApplication()?.let{return Program(it, where)} // try to eval builtin
+                }
                 if (lhs is Lambda) {
                     return lhs.body.substituteVar(Var(lhs.name), rhs).let { Program(it, where) }
                 } else {
-                    return lhs.whnfBetaReduction()?.let { Program(Application(it.expression, rhs), where) }
+                    return lhs.whnfBetaReduction(withBuiltins)?.let { Program(Application(it.expression, rhs), where) }
                 }
             }
-            is Case -> match.whnfBetaReduction()?.let{ Program(Case(it.expression, branches), where) }
+            is Case -> match.whnfBetaReduction(withBuiltins)?.let{ Program(Case(it.expression, branches), where) }
                 ?: branches.find { (p, _) -> p.cover(match) }
                     ?.let { (p, e) -> p.substitutionData(match)?.fold(e) {acc, (v, b) -> acc.substituteVar(v, b)} }
                     ?.let { Program(it, where) }
         }
     }
 
-    fun hnfBetaReduction() : Program? {
-        return expression.hnfBetaReduction()
+    fun hnfBetaReduction(withBuiltins : Boolean = true) : Program? {
+        return expression.hnfBetaReduction(withBuiltins)
     }
-    private fun Expr.hnfBetaReduction() : Program? {
+    private fun Expr.hnfBetaReduction(withBuiltins : Boolean) : Program? {
         return when (this) {
             // not reducible:
             is Var -> return null
@@ -147,10 +152,10 @@ class Program private constructor(val expression: Expr, val where: Where) {
             // try to extract let expression
             is Let -> this.extractLetRec()
 
-            is Lambda -> body.hnfBetaReduction()?.let { Program(Lambda(name, it.expression), where) }
+            is Lambda -> body.hnfBetaReduction(withBuiltins)?.let { Program(Lambda(name, it.expression), where) }
             is Constructor -> {
                 for (i in args.indices) {
-                    val res = args[i].hnfBetaReduction()
+                    val res = args[i].hnfBetaReduction(withBuiltins)
                     if (res != null) {
                         val argsMutable = args.toMutableList()
                         argsMutable[i] = res.expression
@@ -163,40 +168,49 @@ class Program private constructor(val expression: Expr, val where: Where) {
             is Function -> where[name]?.let { Program(it, where) }
 
             is Application -> {
+                if (withBuiltins) {
+                    evalBuiltinApplication()?.let{return Program(it, where)} // try to eval builtin
+                }
                 if (lhs is Lambda) {
                     return lhs.body.substituteVar(Var(lhs.name), rhs).let { Program(it, where) }
                 } else {
-                    return lhs.hnfBetaReduction()?.let { Program(Application(it.expression, rhs), where) }
-                        ?: rhs.hnfBetaReduction()?.let { Program(Application(lhs, it.expression), where) }
+                    return lhs.hnfBetaReduction(withBuiltins)?.let { Program(Application(it.expression, rhs), where) }
+                        ?: rhs.hnfBetaReduction(withBuiltins)?.let { Program(Application(lhs, it.expression), where) }
                 }
             }
-            is Case -> match.hnfBetaReduction()?.let{ Program(Case(it.expression, branches), where) }
+            is Case -> match.hnfBetaReduction(withBuiltins)?.let{ Program(Case(it.expression, branches), where) }
                 ?: branches.find { (p, _) -> p.cover(match) }
                     ?.let { (p, e) -> p.substitutionData(match)?.fold(e) {acc, (v, b) -> acc.substituteVar(v, b)} }
                     ?.let { Program(it, where) }
         }
     }
 
-
     /**
      * Reduce program with strategy
+     * Specify withBuiltins boolean parameter to
      */
-    fun nfWith(strategy : Program.() -> Program?) : Program {
+    fun nfWith(withBuiltins : Boolean = true, strategy : Program.(Boolean) -> Program?) : Program {
         var prev = this
         var e: Program?
         while (true) {
-            e = prev.strategy() ?: return prev
+            e = prev.strategy(withBuiltins) ?: return prev
             prev = e
         }
     }
 
-    fun whnf() : Program = nfWith { whnfBetaReduction() }
-    fun hnf() : Program = nfWith { hnfBetaReduction() }
+    fun whnf() : Program = nfWith { whnfBetaReduction(true) }
+    fun hnf() : Program = nfWith { hnfBetaReduction(true) }
 
     /**
      * Produce sequence of reductions
      */
-    fun whnfSeq() : Sequence<Program> = generateSequence (this) { it.whnfBetaReduction() }
-    fun hnfSeq() : Sequence<Program> = generateSequence (this) { it.hnfBetaReduction() }
+    fun whnfSeq() : Sequence<Program> = generateSequence (this) { it.whnfBetaReduction(true) }
+    fun hnfSeq() : Sequence<Program> = generateSequence (this) { it.hnfBetaReduction(true) }
+
+    fun whnf_noBuiltins() : Program = nfWith { whnfBetaReduction(false) }
+    fun hnf_noBuiltins() : Program = nfWith { hnfBetaReduction(false) }
+    fun whnfSeq_noBuiltins() : Sequence<Program> = generateSequence (this) { it.whnfBetaReduction(false) }
+    fun hnfSeq_noBuiltins() : Sequence<Program> = generateSequence (this) { it.hnfBetaReduction(false) }
+
 
 }

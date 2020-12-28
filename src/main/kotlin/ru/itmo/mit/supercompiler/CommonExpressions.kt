@@ -6,6 +6,8 @@ import ru.itmo.mit.supercompiler.Constructor.Companion.cons
 import ru.itmo.mit.supercompiler.Constructor.Companion.nil
 import ru.itmo.mit.supercompiler.Constructor.Companion.succ
 import ru.itmo.mit.supercompiler.Constructor.Companion.zero
+import ru.itmo.mit.supercompiler.Function.Companion.mulFname
+import ru.itmo.mit.supercompiler.Function.Companion.sumFname
 
 /**
  * This object contains common expressions in lambda calculus
@@ -92,8 +94,6 @@ object CommonExpressions {
 
     /* Church numerals arithmetics */
     object Num {
-        val sumFname = "+"
-        val mulFname = "*"
         fun letSum(wrapped: Expr) : Let {
             val x = "x"
             val y = "y"

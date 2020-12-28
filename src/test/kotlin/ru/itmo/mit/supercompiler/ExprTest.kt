@@ -226,9 +226,8 @@ class ExprTest {
         }
     }
 
-
     @Test
-    fun churchNumerals_multiplyLargeNumbers() {
+    fun churchNumerals_multiplyLargeNumbers_builtins() {
         val term = num(50) mult num(12)
         val prog = Program.convertToProgram(letMul(letSum(term)))
         val res = prog.hnf().expression
@@ -236,10 +235,26 @@ class ExprTest {
     }
 
     @Test
-    fun churchNumerals_multiplyLargeNumbersInv() {
+    fun churchNumerals_multiplyLargeNumbersInv_builtins() {
         val term = num(12) mult num(50)
         val prog = Program.convertToProgram(letMul(letSum(term)))
         val res = prog.hnf().expression
+        assertTrue(res.isomorphic(num(50 * 12)))
+    }
+
+    @Test
+    fun churchNumerals_multiplyLargeNumbers_noBuiltins() {
+        val term = num(50) mult num(12)
+        val prog = Program.convertToProgram(letMul(letSum(term)))
+        val res = prog.hnf_noBuiltins().expression
+        assertTrue(res.isomorphic(num(50 * 12)))
+    }
+
+    @Test
+    fun churchNumerals_multiplyLargeNumbersInv_noBuiltins() {
+        val term = num(12) mult num(50)
+        val prog = Program.convertToProgram(letMul(letSum(term)))
+        val res = prog.hnf_noBuiltins().expression
         assertTrue(res.isomorphic(num(50 * 12)))
     }
 }

@@ -25,6 +25,17 @@ fun makeCase(match : Expr, vararg fill : Pair<Pattern, Expr>) : Case {
     return Case(match, fill.map {(x, y) -> Pair(x, y)})
 }
 
+/**
+ * This function collects applications to single list if there is
+ * a variable in the head position. In other case it returns null
+ */
+fun Expr.asApplicationList() : Pair<Expr, List<Expr>> {
+    return when (this) {
+        is Application -> lhs.asApplicationList().let {(h, t) -> h to t + rhs }
+        else -> this to listOf()
+    }
+}
+
 // supercompilation sugar
 fun supercompile(program: Program) : Program {
     return ProcessGraph.supercompile(program)
