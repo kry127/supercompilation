@@ -14,6 +14,10 @@ class Program private constructor(val expression: Expr, val where: Where) {
          */
         private fun contextClosure(expression: Expr, context : Map<String, Expr>) : Program {
 
+            val allVars = expression.boundVars + expression.freeVars + context.values.flatMap { it.freeVars + it.boundVars }
+            val newNameGenerator = Generator.numberedVariables("g", allVars).iterator()
+//            val newLocals = context.mapValues { (_, e) -> e.freeVars.map { newName.next() } }
+
             fun Expr.visitor() : Expr {
                 return when(this) {
                     is Function -> {
@@ -30,7 +34,7 @@ class Program private constructor(val expression: Expr, val where: Where) {
             }
             return Program(expression.visitor(),
                 context.mapValues { (_, e) -> e.visitor() } // remap function reference of let expressions too
-                .mapValues { (_, e) -> e.freeVars.toList() arrow e })
+                .mapValues { (_, e) -> (e.freeVars.toList() arrow e).renameWithContext(newNameGenerator) })
         }
         /**
          * Use this function to convert expression to program
@@ -42,17 +46,25 @@ class Program private constructor(val expression: Expr, val where: Where) {
         fun convertToProgram(expression: Expr,
                              globals : Map<String, Expr> = mapOf(),
                              variablePrefix : String = "p") : Program {
+            val globalsPool = globals.toMutableMap()
             val context = mutableMapOf<String, Expr>()
             val letFreeContext = mutableMapOf<String, Expr>()
 
             fun Expr.visitor() : Expr {
                 return when(this) {
-                    is Let -> {
-                        if (name in globals) {
-                            globals[name]?.let { context[name] = it }
+                    is Function -> {
+                        if (name in globalsPool) {
+                            val fdef = globals[name] ?: return this
+                            globalsPool.remove(name)
+                            context[name] = fdef
                         }
-                        if (name in context) {
-                            val newName = Generator.numberedVariables(name) { !(it in context) }.first()
+                        this
+                    }
+                    is Let -> {
+                        if (name in context || name in letFreeContext || name in globalsPool) {
+                            val newName = Generator.numberedVariables(name) {
+                                !(it in context || name in letFreeContext || name in globalsPool)
+                            }.first()
                             context += newName to definition
                             // substitute function name
                             body.substitudeFunName(name, newName).visitor()
