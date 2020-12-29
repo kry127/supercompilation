@@ -175,6 +175,8 @@ class Constructor private constructor(val name : String, val args : List<Expr>, 
         return name.hashCode() + 371 * args.hashCode()
     }
 
+    constructor(name : String) : this(name, listOf())
+
     constructor(name : String, args : List<Expr>)
     : this(name, args, 9, Assoc.NONE, args.isEmpty())
 

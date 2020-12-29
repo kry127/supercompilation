@@ -44,6 +44,12 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
         program.expression.boundVars + program.expression.freeVars + where.keys).iterator()
 
 
+    private var trivial = 0
+    private var renaming = 0
+    private var substitutions = 0
+    private var coupling = 0
+    private var driving = 0
+
     init {
         try {
             // after that, initialization continues with building process tree (potentially infinite process)
@@ -55,8 +61,10 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
             printlnDbg("| Final Graph |")
             printlnDbg("+=============+")
             printlnDbg()
-            printlnDbg(dump())
+//            printlnDbg(dump())
             printlnDbg()
+            printlnDbg("Statistics: trivial=$trivial, renaming=$renaming, substitutions=$substitutions, " +
+                    "coupling=$coupling, driving=$driving")
         }
     }
 
@@ -471,7 +479,7 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
             val processing = unprocessed.firstOrNull() ?: return i // end function when no processing nodes left
             unprocessed.remove(processing)
             i++
-            if (i > 200) {
+            if (i > 20000) {
                 error("Stop iteration")
             }
 
@@ -480,8 +488,8 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
             printDbg("Step #$i [${processing.name}] <- [${processing.parent?.name}]")
 
             if (processing.trivial) {
+                trivial++
                 printlnDbg("  [Trivial]")
-
                 processing.drive()
                 continue
             }
@@ -492,6 +500,7 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
 //                        && !ancestor.transition
             }
             if (renamingAncestor != null) {
+                renaming++
                 printlnDbg("  [Folding]")
                 printlnDbg("    node     #${processing.name} => ${processing.expr}")
                 printlnDbg("    renaming #${renamingAncestor.name} => ${renamingAncestor.expr}")
@@ -505,6 +514,7 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
                         && !ancestor.transition
             }
             if (substAncestor != null) {
+                substitutions++
                 printlnDbg("  [Substitution]")
 
                 printlnDbg("    node     #${processing.name} => ${processing.expr}")
@@ -519,7 +529,7 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
                     && !ancestor.transition && ancestor.parent?.letSubstitution == null
             }
             if (whistleAncestor != null) {
-
+                coupling++
                 printlnDbg("  [Coupling]")
                 printlnDbg("    node     #${processing.name} => ${processing.expr}")
                 printlnDbg("    similar  #${whistleAncestor.name} => ${whistleAncestor.expr}")
@@ -535,6 +545,7 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
                 continue
             }
 
+            driving++
             printlnDbg("  [Driving]")
             processing.drive()
         }
