@@ -441,6 +441,8 @@ class ProcessGraph private constructor(program: Program) {
         return old
     }
 
+    private fun isRenaming(substitution: Substitution) = substitution.values.all { it is Var }
+
     /**
      * The most important function: builds process tree of the program
      * Returns amount of steps just for curiosity
@@ -476,7 +478,8 @@ class ProcessGraph private constructor(program: Program) {
             }
 
             val renamingAncestor = processing.ancestor { ancestor, proc ->
-                ancestor.expr isomorphic generalize(ancestor.expr, proc.expr).expr
+                val generalization = generalize(ancestor.expr, proc.expr)
+                isRenaming(generalization.subLeft) && isRenaming(generalization.subRight)
 //                        && !ancestor.transition
             }
             if (renamingAncestor != null) {
@@ -488,7 +491,8 @@ class ProcessGraph private constructor(program: Program) {
             }
 
             val substAncestor = processing.ancestor{ ancestor, proc ->
-                proc.expr isomorphic generalize(ancestor.expr, proc.expr).expr
+                val generalization = generalize(ancestor.expr, proc.expr)
+                isRenaming(generalization.subLeft)
                         && !ancestor.transition
             }
             if (substAncestor != null) {
