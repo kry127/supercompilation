@@ -313,14 +313,14 @@ class ExprTest {
     }
 
     // sample program -- sumSquares test
-    @Test(dataProvider = "tenNaturals")
+    @Test(dataProvider = "twentyNaturals")
     fun sampleProgram_testSumSquares(N : Int) {
         val prog = sumSquaresN(num(N))
         val res = prog.hnf().expression
         assertTrue(res.isomorphic(num((1..N).map { it*it }.sum())))
     }
 
-    @DataProvider(name = "tenNaturals")
+    @DataProvider(name = "twentyNaturals")
     fun getData(@TestInstance `object`: Any): Array<Array<Any>> {
         val data = (1..20).map { arrayOf(it as Any) }.toTypedArray()
         return data
