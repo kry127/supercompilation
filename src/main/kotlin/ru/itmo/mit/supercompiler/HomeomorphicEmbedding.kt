@@ -76,13 +76,17 @@ private fun Expr.homoCoupling(ctx : BoundedVariables, other : Expr) : Boolean {
         return body.homo(ctx.put(name to other.name), other.body)
     } else if (this is Application && other is Application) {
         // TODO fix instance 8
-        if (lhs is Application) {
-            // left should not be application === left is checking with coupling, right with ordinary homo
-            return lhs.homoCoupling(ctx, other.lhs) && rhs.homo(ctx, other.rhs)
-        } else {
-            // apply ordinary rules instead
-            return lhs.homo(ctx, other.lhs) && rhs.homo(ctx, other.rhs)
-        }
+        val (head1, applicands1) = this.asApplicationList()
+        val (head2, applicands2) = other.asApplicationList()
+        if (applicands1.size != applicands2.size) return false
+        return head1.homo(ctx, head2) && applicands1.zip(applicands2).all { (a1, a2) -> a1.homo(ctx, a2)}
+//        if (lhs is Application) {
+//            // left should not be application === left is checking with coupling, right with ordinary homo
+//            return lhs.homoCoupling(ctx, other.lhs) && rhs.homo(ctx, other.rhs)
+//        } else {
+//            // apply ordinary rules instead
+//            return lhs.homo(ctx, other.lhs) && rhs.homo(ctx, other.rhs)
+//        }
     } else if (this is Case && other is Case) {
         return match.homo(ctx, other.match) &&
                 this.branches.zip(other.branches).all { (br1, br2) ->

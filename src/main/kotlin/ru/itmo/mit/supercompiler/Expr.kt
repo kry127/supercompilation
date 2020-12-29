@@ -52,7 +52,12 @@ sealed class Expr(open val priority : Int, open val assoc : Assoc, open val leaf
     }
 
     /**
-     * Переименование замкнутых переменных с генератором имён и контекстом
+     * Переименование замкнутых переменных с генератором имён
+     */
+    public fun renameWithContext(nameGenerator : Iterator<String>) = renameWithContext(nameGenerator, mapOf())
+
+    /**
+     * Переименование замкнутых переменных с генератором имён и контекстом переименования
      */
     private fun renameWithContext(nameGenerator : Iterator<String>, renaming : Map<String, String>) : Expr {
         return when (this) {
@@ -115,7 +120,24 @@ sealed class Expr(open val priority : Int, open val assoc : Assoc, open val leaf
 
 
     fun substituteVar(what : Var, with : Expr) : Expr {
-        if (!isValid() || !what.isValid() || !with.isValid()) error("You can use substitude only with valid terms!")
+        if (!isValid() || !what.isValid() || !with.isValid()) {
+            error("You can use substitude only with valid terms!")
+        }
+        return substituteVarUnsafe(what, with)
+    }
+
+    fun substituteVar(what : Var, with : Expr, gen : Iterator<String>) : Expr {
+
+        if (!what.isValid() || !with.isValid()) {
+            error("You can use substitude only with valid terms!")
+        }
+        if (!isValid()) {
+            this.renameWithContext(gen).substituteVarUnsafe(what, with)
+        }
+        return substituteVarUnsafe(what, with)
+    }
+
+    private fun substituteVarUnsafe(what : Var, with : Expr) : Expr {
         if (equals(what)) return with
         return when (this) {
             is Var -> if (name == what.name) with else this

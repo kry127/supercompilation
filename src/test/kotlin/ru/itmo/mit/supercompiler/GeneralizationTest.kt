@@ -83,7 +83,7 @@ class GeneralizationTest {
     fun randomTest_checkThatExprsIsARenamingOfGeneralization_verbose() {
         val varNames = setOf("x", "y", "z")
         val funNames = setOf("f", "g", "h")
-        val ktorNames = setOf("True", "False")
+        val ktorNames = setOf("Branch", "Leaf")
         val treeGen = RandomExprGenerator(varNames,funNames, ktorNames, 5, 3, 134723)
 
         repeat(1000) {
@@ -99,7 +99,7 @@ class GeneralizationTest {
     fun randomTest_checkThatExprsIsARenamingOfGeneralization_silent1() {
         val varNames = setOf("x", "y", "z")
         val funNames = setOf("f", "g", "h")
-        val ktorNames = setOf("True", "False")
+        val ktorNames = setOf("Branch", "Leaf")
         val treeGen = RandomExprGenerator(varNames,funNames, ktorNames, 7, 3, 349133)
 
         repeat(10000) {
@@ -112,7 +112,7 @@ class GeneralizationTest {
     fun randomTest_checkThatExprsIsARenamingOfGeneralization_deep() {
         val varNames = setOf("x", "y", "z")
         val funNames = setOf("f", "g", "h")
-        val ktorNames = setOf("True", "False")
+        val ktorNames = setOf("Branch", "Leaf")
         val treeGen = RandomExprGenerator(varNames,funNames, ktorNames, 22, 5, 144209)
 
         repeat(1000) {

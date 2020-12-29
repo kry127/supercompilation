@@ -22,16 +22,26 @@ class ProcessGraph private constructor(program: Program) {
     private val unprocessed : MutableSet<Node> = mutableSetOf()
     // initialize with target expression and global functions context 'where'
     private var root : Node = Node(program.expression, null)
-    private val where : Where = program.where
+    private var where : Where = program.where
     // and even initialize proper names generator, so no collisions occur
     private val nameGen = Generator.numberedVariables("s",
         program.expression.boundVars + program.expression.freeVars + where.keys).iterator()
 
 
     init {
-        // after that, initialization continues with building process tree (potentially infinite process)
-        buildProcessTree()
-        // now the class is ready for program extraction
+        try {
+            // after that, initialization continues with building process tree (potentially infinite process)
+            buildProcessTree()
+            // now the class is ready for program extraction
+        } finally {
+            println()
+            println("+=============+")
+            println("| Final Graph |")
+            println("+=============+")
+            println()
+            println(dump())
+            println()
+        }
     }
 
     /**
@@ -44,15 +54,16 @@ class ProcessGraph private constructor(program: Program) {
                              val children : MutableList<Node> = mutableListOf(),
                              var childrenPat : List<Pattern>? = null, // if it is nontrivial pattern, this is not null
                              private var backedgeParent : Node? = null,
-                             private val transition : Boolean = false,
+                             val transition : Boolean = false,
                              ) {
+        val name = nodeNameGenerator.next() // name node for dump purpose
         init {
             // place yourself in unprocessed list :)
             unprocessed.add(this)
         }
-        val name = nodeNameGenerator.next() // name node for dump purpose
 
-        val expr get() = expression // expose read only property
+        var expr get() = expression // expose read only property
+                 set(it) { expression = if (expr.isValid()) it else expr.renameWithContext(nameGen) }
         val backedge get() = backedgeParent
         // also provide collection of nodes backedged by current node
         val backedged : List<Node> get() = getBackedged(this)
@@ -60,19 +71,19 @@ class ProcessGraph private constructor(program: Program) {
         fun getBackedged(to: Node) : List<Node> {
             val res = children.flatMap { it.getBackedged(to) }
             if (backedgeParent == to) {
-                return res + setOf(this)
+                return res + this
             }
             return res
         }
 
         // other Node properties
         val processed get() = backedgeParent != null // variable is processed if it has backedge
-                || (expression.let{it is Constructor && it.args.isEmpty()}) // or if it is zero arity constructor
-                || expression is Var // or it is LOCAL (?) variable (guess just Var, not Fun)
+                || (expr.let{it is Constructor && it.args.isEmpty()}) // or if it is zero arity constructor
+                || expr is Var // or it is LOCAL (?) variable (guess just Var, not Fun)
 
-        val nontrivial_func = expression.isNontrivial().first
-        val nontrivial_case = expression.isNontrivial().second
-        val nontrivial = expression.isNontrivial().let { it.first || it.second }
+        val nontrivial_func = expr.isNontrivial().first
+        val nontrivial_case = expr.isNontrivial().second
+        val nontrivial = expr.isNontrivial().let { it.first || it.second }
         val trivial = !nontrivial && !processed
 
         tailrec fun Expr.isNontrivial() : Pair<Boolean, Boolean> {
@@ -92,7 +103,7 @@ class ProcessGraph private constructor(program: Program) {
          * Returns itself as chaining
          */
         private fun fmapExpr(f : Expr.() -> Expr) : Node {
-            expression =  f (expression)
+            expr =  f (expr)
             return this
         }
 
@@ -102,9 +113,9 @@ class ProcessGraph private constructor(program: Program) {
          */
         fun drive() {
             if (!children.isEmpty()) error("The node have been driven twice!")
-//            println("Driving expr: $expr")
-            children.addAll(expression.driveRec())
-//            println("Got children: ${children.map{it.expr}}")
+            println("Driving expr: $expr")
+            children.addAll(expr.driveRec())
+            println("Got children: ${children.map{it.expr}}")
         }
 
         /**
@@ -116,7 +127,9 @@ class ProcessGraph private constructor(program: Program) {
         private fun Expr.driveRec() : List<Node> {
             // separately process nodes with artificial let substitution
             if (letSubstitution != null) {
-                return listOf(Node(expression, this@Node)) + letSubstitution.values.map { Node(it, this@Node) }
+                val letExpr = expr
+                expr = letSubstitution.entries.fold(letExpr) {e, (n, d) -> Let(n, d, e)}
+                return listOf(Node(letExpr, this@Node)) + letSubstitution.values.map { Node(it, this@Node) }
             }
             // observables
             when (this) {
@@ -165,12 +178,12 @@ class ProcessGraph private constructor(program: Program) {
                         return lhs.body.substituteVar(Var(lhs.name), rhs).let { Node(it, this@Node, transition = true) }
                     } else {
                         // maybe redex in lhs according to 'con := con e' rule
-                        return lhs.driveBetaReduction()?.let { it.fmapExpr { Application(it.expression, rhs) } }
+                        return lhs.driveBetaReduction()?.let { it.fmapExpr { Application(it.expr, rhs) } }
                     }
                 }
                 is Case -> {
                     // 'con := case con of ...
-                    match.driveBetaReduction()?.let { return it.fmapExpr { Case(it.expression, branches) } }
+                    match.driveBetaReduction()?.let { return it.fmapExpr { Case(it.expr, branches) } }
                     // con<case (C ve) of ... (C p) -> e esac>   =>   con<e{p \\ ve}>
                     branches.find { (p, _) -> p.cover(match) }
                         ?.let { (p, e) ->
@@ -228,15 +241,17 @@ class ProcessGraph private constructor(program: Program) {
         fun extractProgram(dict : Map<Node, Expr>) : Expr {
             // separately process nodes with artificial let substitution
             if (letSubstitution != null) {
-                return children.first().extractProgram(dict).applySub(letSubstitution)
+                return children.first().extractProgram(dict)
+                    .applySub(letSubstitution.keys.zip(children.drop(1).map {it.expr}).toMap())
             }
 
             // here we process nontrivial nodes... the heart of finite control flow representation
             if (nontrivial) {
                 // rule C7.2 and C8.2 of the article
                 if (backedgeParent != null) {
-                    val fsig = dict[backedgeParent] ?: error("Insufficient map")
-                    val gen = generalize(fsig, expression)
+                    val fsig = dict[backedgeParent]
+                        ?: error("Insufficient map")
+                    val gen = generalize(fsig, expr)
                     assert (gen.expr isomorphic fsig) // check just in case
                     return fsig.applySub(gen.subRight)
                 }
@@ -300,8 +315,9 @@ class ProcessGraph private constructor(program: Program) {
             if (nontrivial_case) {
                 // the same as upper case, just get memoized expression
                 if (backedgeParent != null) {
-                    val fsig = dict[backedgeParent] ?: error("Insufficient map")
-                    val gen = generalize(fsig, expression)
+                    val fsig = dict[backedgeParent]
+                            ?: error("Insufficient map")
+                    val gen = generalize(fsig, expr)
                     assert (gen.expr isomorphic fsig) // check just in case
                     return fsig.applySub(gen.subRight)
                 }
@@ -317,7 +333,7 @@ class ProcessGraph private constructor(program: Program) {
             }
 
             // observables
-            val e = expression
+            val e = expr
             when (e) {
                 // 1. local variable
                 is Var -> return e // straightforward
@@ -346,34 +362,30 @@ class ProcessGraph private constructor(program: Program) {
          *
          * the nodeBuilder takes parent node as an argument
          */
-        fun replace(old : Node, nodeBuilder : (Node?) -> Node) : Boolean {
+        fun replace(old : Node, nodeBuilder : (Node?) -> Node) : Node? {
             if (old == this) {
                 if (parent == null) error("Parent should be not null")
                 // uhh, ugly
                 val id = parent.children.indexOf(old)
                 parent.children.removeAt(id)
-                parent.children.add(id, nodeBuilder(this))
+                parent.children.add(id, nodeBuilder(parent))
                 old.removeSubtreeFromUnprocessed()
-                return true
+                return old
             }
             for (n in children) {
-                if (n.replace(old, nodeBuilder)) {
-                    return true
-                }
+                n.replace(old, nodeBuilder)?.let { return it }
             }
-            return false
+            return null
         }
-
-        private fun removeSubtreeFromUnprocessed() = (children + this).map { unprocessed.remove(it) }
 
         /**
          * Returns first ancestor that satisfies bi-argument predicate
          * The first argument is expression from uppermost node, the second argument is from bottommost node
          */
-        fun ancestor(predicate : (Expr, Expr) -> Boolean) : Node? {
+        fun ancestor(predicate : (Node, Node) -> Boolean) : Node? {
             var res = parent
             while (res != null) {
-                if (predicate(res.expression, expression)) return res
+                if (predicate(res, this)) return res
                 res = res.parent
             }
             return null
@@ -395,7 +407,7 @@ class ProcessGraph private constructor(program: Program) {
             sb.appendLine("\"transition\": \"$transition\",")
             sb.appendLine("\"children\": [${children.map { it.name }.joinToString ("\", \"", "\"", "\"" )}],")
             sb.appendLine("\"parent\": \"${parent?.name}\",")
-            sb.appendLine("\"backedge\": \"$backedge\"")
+            sb.appendLine("\"backedge\": \"${backedge?.name}\"")
             sb.appendLine("},")
             children.map {it.dump(sb)}
             return sb
@@ -406,20 +418,27 @@ class ProcessGraph private constructor(program: Program) {
     /**
      * Replaces node 'n' in the tree (by ref) with fresh node with expression e
      */
-    private fun replace(old : Node, nodeBuilder : (Node?) -> Node) : Boolean {
+    private fun replace(old : Node, nodeBuilder : (Node?) -> Node) : Node? {
         if (old == root) {
             root = nodeBuilder(null)
-            return true
+            old.removeSubtreeFromUnprocessed()
+            return old
         }
         return root.replace(old, nodeBuilder)
+    }
+    private fun Node.removeSubtreeFromUnprocessed() : Unit
+    {
+        unprocessed.remove(this);
+        children.forEach() {  it.removeSubtreeFromUnprocessed() }
     }
 
     /**
      * Performs abstraction of node 'alpha' with respect to node 'beta'
      */
-    private fun abstract(alpha : Node, beta : Node) {
+    private fun abstract(alpha : Node, beta : Node) : Node? {
         val generalization = generalize(alpha.expr, beta.expr)
-        replace(alpha) { p -> Node(generalization.expr, p, generalization.subLeft) }
+        val old = replace(alpha) { p -> Node(generalization.expr, p, generalization.subLeft) }
+        return old
     }
 
     /**
@@ -441,30 +460,69 @@ class ProcessGraph private constructor(program: Program) {
             val processing = unprocessed.firstOrNull() ?: return i // end function when no processing nodes left
             unprocessed.remove(processing)
             i++
+            if (i > 200) {
+                error("Stop iteration")
+            }
+
+            println("")
+            println("=================")
+            print("Step #$i [${processing.name}] <- [${processing.parent?.name}]")
 
             if (processing.trivial) {
+                println("  [Trivial]")
+
                 processing.drive()
                 continue
             }
 
-            val renamingAncestor = processing.ancestor { ancestor, proc -> ancestor isomorphic generalize(ancestor, proc).expr }
+            val renamingAncestor = processing.ancestor { ancestor, proc ->
+                ancestor.expr isomorphic generalize(ancestor.expr, proc.expr).expr
+//                        && !ancestor.transition
+            }
             if (renamingAncestor != null) {
+                println("  [Folding]")
+                println("    node     #${processing.name} => ${processing.expr}")
+                println("    renaming #${renamingAncestor.name} => ${renamingAncestor.expr}")
                 renamingAncestor.fold(processing)
                 continue
             }
 
-            val substAncestor = processing.ancestor{ ancestor, proc -> ancestor isomorphic proc}
+            val substAncestor = processing.ancestor{ ancestor, proc ->
+                proc.expr isomorphic generalize(ancestor.expr, proc.expr).expr
+                        && !ancestor.transition
+            }
             if (substAncestor != null) {
-                abstract(processing, substAncestor)
+                println("  [Substitution]")
+
+                println("    node     #${processing.name} => ${processing.expr}")
+                println("    similar  #${substAncestor.name} => ${substAncestor.expr}")
+                val old = abstract(processing, substAncestor)
+                println("    replaced #${old?.name}")
                 continue
             }
 
-            val whistleAncestor = processing.ancestor {ancestor, proc -> ancestor homoCoupling proc}
+            val whistleAncestor = processing.ancestor {ancestor, proc ->
+                ancestor.expr homoCoupling proc.expr
+                    && !ancestor.transition && ancestor.parent?.letSubstitution == null
+            }
             if (whistleAncestor != null) {
-                abstract(whistleAncestor, processing)
+
+                println("  [Coupling]")
+                println("    node     #${processing.name} => ${processing.expr}")
+                println("    similar  #${whistleAncestor.name} => ${whistleAncestor.expr}")
+                println("    generalization => ${generalize(whistleAncestor.expr, processing.expr).expr}")
+//                println("  Graph:")
+//                println(dump())
+                val old = abstract(whistleAncestor, processing)
+                println("    replaced #${old?.name}")
+
+                println("  New graph:")
+                println(dump())
+                println("  [End Coupling]")
                 continue
             }
 
+            println("  [Driving]")
             processing.drive()
         }
     }
