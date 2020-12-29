@@ -6,9 +6,9 @@ import ru.itmo.mit.supercompiler.Constructor.Companion.num
 
 class SupercompilationTest {
     @Test
-    fun youBetterWork() {
+    fun youBetterWork_debugOutput() {
         val prog = CommonExpressions.sumSquaresN(Var("n"))
-        val newprog = supercompile(prog)
+        val newprog = supercompile(prog, debug = true)
         print(newprog)
     }
 }

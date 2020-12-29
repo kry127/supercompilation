@@ -34,6 +34,6 @@ fun Expr.asApplicationList() : Pair<Expr, List<Expr>> {
 }
 
 // supercompilation sugar
-fun supercompile(program: Program) : Program {
-    return ProcessGraph.supercompile(program)
+fun supercompile(program: Program, debug :Boolean = false) : Program {
+    return ProcessGraph.supercompile(program, debug)
 }
