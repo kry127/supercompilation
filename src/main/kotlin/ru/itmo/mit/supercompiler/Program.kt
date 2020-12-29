@@ -10,30 +10,54 @@ class Program private constructor(val expression: Expr, val where: Where) {
     companion object {
 
         /**
-         * Use this function to convert expression to program
-         * All globals added to the expression as letRec expressions
+         * Make context functions closed
          */
-        private fun Expr.infiltrateGlobals(globals : Map<String, Expr>) : Expr {
-            return globals.entries.fold(this) { e, (fname, fdef) -> Let(fname, fdef, e)}
+        private fun contextClosure(expression: Expr, context : Map<String, Expr>) : Program {
+
+            fun Expr.visitor() : Expr {
+                return when(this) {
+                    is Function -> {
+                        val freeVars = context[name]?.freeVars?.toList() ?: return this
+                        (this app freeVars.map { Var(it) })
+                    }
+                    is Let -> error("Let should be extracted on step 'convertToProgram'")
+                    is Application -> Application(lhs.visitor(), rhs.visitor())
+                    is Lambda -> Lambda(name, body.visitor())
+                    is Case -> Case(match.visitor(), branches.map { (p, e) -> p to e.visitor() })
+                    is Constructor -> Constructor(name, args.map { e -> e.visitor() })
+                    else -> this
+                }
+            }
+            return Program(expression.visitor(),
+                context.mapValues { (_, e) -> e.visitor() } // remap function reference of let expressions too
+                .mapValues { (_, e) -> e.freeVars.toList() arrow e })
         }
         /**
          * Use this function to convert expression to program
          * where all 'letrec' constructions have been moved to 'where' context
+         *
+         * TODO context functions with free variables not correctly working when performing
+         * operations on expression
          */
         fun convertToProgram(expression: Expr,
                              globals : Map<String, Expr> = mapOf(),
                              variablePrefix : String = "p") : Program {
-            val ctx = mutableMapOf<String, Expr>()
+            val context = mutableMapOf<String, Expr>()
+            val letFreeContext = mutableMapOf<String, Expr>()
+
             fun Expr.visitor() : Expr {
                 return when(this) {
                     is Let -> {
-                        if (name in ctx) {
-                            val newName = Generator.numberedVariables(name) { !(it in ctx) }.first()
-                            ctx += newName to definition
+                        if (name in globals) {
+                            globals[name]?.let { context[name] = it }
+                        }
+                        if (name in context) {
+                            val newName = Generator.numberedVariables(name) { !(it in context) }.first()
+                            context += newName to definition
                             // substitute function name
                             body.substitudeFunName(name, newName).visitor()
                         } else {
-                            ctx += name to definition
+                            context += name to definition
                             body.visitor()
                         }
                     }
@@ -44,8 +68,17 @@ class Program private constructor(val expression: Expr, val where: Where) {
                     else -> this
                 }
             }
-            val preparedExpression = expression.infiltrateGlobals(globals).renamedBoundVariables(variablePrefix)
-            return Program(preparedExpression.visitor(), ctx.toMap())
+            val preparedExpression = expression.renamedBoundVariables(variablePrefix)
+            val letFreeMain = preparedExpression.visitor()
+            while (true) {
+                val contextEntries = context.toMap()
+                context.clear()
+                for ((fname, fdef) in contextEntries) {
+                    letFreeContext[fname] = fdef.visitor()
+                }
+                if (context.isEmpty()) break // nothing to purge
+            }
+            return contextClosure(letFreeMain, letFreeContext.toMap())
         }
 
         fun Expr.substitudeFunName(from : String, to : String) : Expr {

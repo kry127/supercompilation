@@ -39,6 +39,8 @@ class Generalization private constructor(val expr : Expr, val subLeft : Substitu
             // TODO do we really can't do this?
             if (!lhs.isValid() && !rhs.isValid()) {
                 error("cannot generalize expressions with collisions")
+//                generalize(lhs.renamedBoundVariables("rn"), rhs.renamedBoundVariables("rn"))
+
             }
 
             // use the same generator to avoid generated variables name collision

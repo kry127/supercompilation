@@ -21,9 +21,14 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
     }
     // don't let them build this monster, just give them simple interface:
     companion object {
-        fun supercompile(program: Program, debug : Boolean = false) : Program {
+        fun supercompileProgram(program: Program, debug : Boolean = false) : Program {
             val pg = ProcessGraph(program, debug)
-            return pg.extractProgram().toProgram() //.toProgram(program.where)
+            return pg.extractProgram().toProgram(program.where)
+        }
+
+        fun supercompile(program: Program, debug : Boolean = false) : Expr {
+            val pg = ProcessGraph(program, debug)
+            return pg.extractProgram()
         }
     }
 
@@ -59,12 +64,12 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
      * Disclaimer -- a MUTABLE data structure.
      * Didn't want to work with zippers :D
      */
-    private inner class Node(private var expression: Expr,
+    private inner class Node(var expression: Expr,
                              val parent : Node?,
                              val letSubstitution: Substitution? = null, // this is how we encode internal let substitution
                              val children : MutableList<Node> = mutableListOf(),
                              var childrenPat : List<Pattern>? = null, // if it is nontrivial pattern, this is not null
-                             private var backedgeParent : Node? = null,
+                             var backedgeParent : Node? = null,
                              val transition : Boolean = false,
                              ) {
         val name = nodeNameGenerator.next() // name node for dump purpose
@@ -74,7 +79,7 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
         }
 
         var expr get() = expression // expose read only property
-                 set(it) { expression = if (expr.isValid()) it else expr.renameWithContext(nameGen) }
+                 set(it) { expression = it } // if (expr.isValid()) it else expr.renameWithContext(nameGen) }
         val backedge get() = backedgeParent
         // also provide collection of nodes backedged by current node
         val backedged : List<Node> get() = getBackedged(this)
@@ -113,8 +118,8 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
          * A mutable fmap function, modifies storing expression
          * Returns itself as chaining
          */
-        private fun fmapExpr(f : Expr.() -> Expr) : Node {
-            expr =  f (expr)
+        private fun fmapExpr(f : (Expr) -> Expr) : Node {
+            expression =  f (expression)
             return this
         }
 
@@ -182,19 +187,23 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
          */
         private fun Expr.driveBetaReduction() : Node? {
             when (this) {
-                is Function -> return where[name]?.let {Node( it , this@Node, transition = true)}
+                is Function -> return where[name]?.renameWithContext(nameGen)?.let {e -> Node( e , this@Node, transition = true)}
                 is Application -> {
                     if (lhs is Lambda) {
                         // con<(\v -> body) @ rhs>   =>   con< body {v := rhs} >
-                        return lhs.body.substituteVar(Var(lhs.name), rhs).let { Node(it, this@Node, transition = true) }
+                        return lhs.body.substituteVar(Var(lhs.name), rhs).let { e -> Node(e, this@Node, transition = true) }
                     } else {
                         // maybe redex in lhs according to 'con := con e' rule
-                        return lhs.driveBetaReduction()?.let { it.fmapExpr { Application(it.expr, rhs) } }
+                        val reduced = lhs.driveBetaReduction() ?: return null
+                        return reduced.fmapExpr { e -> Application(e, rhs) }
                     }
                 }
                 is Case -> {
                     // 'con := case con of ...
-                    match.driveBetaReduction()?.let { return it.fmapExpr { Case(it.expr, branches) } }
+                    val reducedMatch = match.driveBetaReduction()
+                    if (reducedMatch != null) {
+                        return reducedMatch.fmapExpr { e -> Case(e, branches) }
+                    }
                     // con<case (C ve) of ... (C p) -> e esac>   =>   con<e{p \\ ve}>
                     branches.find { (p, _) -> p.cover(match) }
                         ?.let { (p, e) ->
@@ -264,7 +273,7 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
             // separately process nodes with artificial let substitution
             if (letSubstitution != null) {
                 val lambdaProgram = children.first().extractProgram(dict)
-                val subst = letSubstitution.keys.zip(children.drop(1).map {it.expr}).toMap()
+                val subst = letSubstitution.keys.zip(children.drop(1).map {it.extractProgram(dict)}).toMap()
                 return lambdaProgram.applySub(subst)
 //                return subst.values.fold(lambdaProgram) {p, e -> p app e}
             }
@@ -442,7 +451,10 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
      */
     private fun abstract(alpha : Node, beta : Node) : Node? {
         val generalization = generalize(alpha.expr, beta.expr)
-        val old = replace(alpha) { p -> Node(generalization.expr, p, generalization.subLeft,
+        val old = replace(alpha) { p ->
+            assert(p?.letSubstitution == null) // this is important
+            assert(p?.backedgeParent == null) // this is important
+            Node(generalization.expr, p, generalization.subLeft,
             transition = p?.transition ?: false // we SHOULD inherit that property
         )
         }

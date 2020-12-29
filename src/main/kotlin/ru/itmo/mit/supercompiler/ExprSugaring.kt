@@ -11,6 +11,7 @@ fun Expr.toProgram(globals : Map<String, Expr> = mapOf()) = Program.convertToPro
 
 // some lambda calculus
 infix fun Expr.app(other: Expr) : Expr = Application(this, other)
+infix fun Expr.app(other: List<Expr>) : Expr = other.fold(this){ e, n -> e app n }
 infix fun Expr.abs(name : String) : Lambda = Lambda(name, this)
 infix fun Expr.abs(names : List<String>) = names.reversed().fold(this) { e, n -> e abs n }
 
@@ -34,6 +35,10 @@ fun Expr.asApplicationList() : Pair<Expr, List<Expr>> {
 }
 
 // supercompilation sugar
-fun supercompile(program: Program, debug :Boolean = false) : Program {
+fun supercompile(program: Program, debug : Boolean = false) : Expr {
     return ProcessGraph.supercompile(program, debug)
+}
+
+fun supercompileProgram(program: Program, debug : Boolean = false) : Program {
+    return ProcessGraph.supercompileProgram(program, debug)
 }
