@@ -285,18 +285,17 @@ class SupercompilationTest {
         assertTrue(regularResult.hnf().expression isomorphic superResult.hnf().expression)
     }
 
-
-
     @Test
     fun kmpPerformanceTest() {
         // testing grid
         val patternSize = listOf(1, 2, 3, 4, 5) // columns
-        val inputSize = listOf(5, 10, 15, 20, 25) // rows
-        val groupDatasetSize = 50
+        val inputSize = listOf(5, 10, 15, 20, 30, 40, 50, 75, 100, 125) // rows
+        val groupDatasetSize = 15
 
         // results stored here
         val originalProgramResult = mutableMapOf<Pair<Int, Int>, Double>()
         val supercompiledProgramResults = mutableMapOf<Pair<Int, Int>, Double>()
+
 
 
         fun calculate(patternSize: Int, inputSize: Int, datasetSize: Int) {
@@ -395,4 +394,111 @@ class SupercompilationTest {
         println("There is average of $groupDatasetSize measures in one cell of the table!")
         println()
     }
+
+    @Test
+    fun kmpReductionStepsTest() {
+        // testing grid
+        val patternSize = listOf(1, 2, 3, 4, 5) // columns
+        val inputSize = listOf(5, 10, 15, 20, 30, 40, 50, 75, 100, 125) // rows
+        val groupDatasetSize = 15
+
+        // results stored here
+        val originalProgramResult = mutableMapOf<Pair<Int, Int>, Double>()
+        val supercompiledProgramResults = mutableMapOf<Pair<Int, Int>, Double>()
+
+
+
+        fun calculate(patternSize: Int, inputSize: Int, datasetSize: Int) {
+            // extract data
+            val dataset = getFixedSizedStrings(patternSize, inputSize, datasetSize)
+            val (pattern, strings) = dataset
+
+            // prepare programs for pattern
+            val kmpFinder = KnuthMorrisPrattABCD.buildProgram(pattern)
+            val supercompiledFinder = supercompile(kmpFinder, debug = false)
+
+            var sumOriginalPerformance = .0
+            var sumSuperdompiledPerformance = .0
+            for (input in strings) {
+                // preparing subprograms
+                val stringAsTerm = KnuthMorrisPrattABCD.buildKmpString(input)
+                val regularTerm = kmpFinder.fmap { (this abs "str") app stringAsTerm }
+                val superTerm = (supercompiledFinder abs "str" app stringAsTerm).toProgram()
+
+                // launch execution of original version of the program
+                val time1 = regularTerm.hnfSeq().toList().size
+                // and then measure supercompiled version
+                val time2 = superTerm.hnfSeq().toList().size
+
+                sumOriginalPerformance += time1
+                sumSuperdompiledPerformance += time2
+            }
+
+            // when cycle is over, add info to the final result
+            originalProgramResult[patternSize to inputSize] = sumOriginalPerformance / datasetSize
+            supercompiledProgramResults[patternSize to inputSize] = sumSuperdompiledPerformance / datasetSize
+        }
+
+        // perform computations
+        for (patSz in patternSize) {
+            for (inpSz in inputSize) {
+                println("Computing with parameters patternSize=$patSz, inputSize=$inpSz, datasetSize=$groupDatasetSize")
+                calculate(patSz, inpSz, groupDatasetSize)
+            }
+        }
+
+        // output table
+
+        println()
+        println(" === ")
+        println()
+        println("Task has been done!")
+        println("Performance table:")
+
+        val columnWidth = 15
+        val columnCount = patternSize.size + 1
+        val widthLimit = columnCount * (columnWidth + 1) - 1
+        val globalDelimiter = "+" + "-".repeat(widthLimit) + "+"
+        fun globalFormatter(arg : Any?) : String {
+            val prepared =  "+" + " ".repeat(widthLimit) + "+"
+            val content = arg.toString()
+            val start = max((widthLimit - content.length) / 2, 1)
+            val end = min(start + content.length, prepared.length - 1)
+            return prepared.replaceRange(start, end, content)
+        }
+
+        val delimiter = "+" + ("-".repeat(columnWidth) + "+").repeat(columnCount)
+        fun formatter(args : List<Any?>) = args.fold("|") { str, smth -> str + " %${columnWidth - 2}s |".format(smth) }
+        fun printTableForResult(result : Map<Pair<Int, Int>, Double>) {
+            println(delimiter)
+            println(formatter(listOf("") + patternSize))
+            println(delimiter)
+            for (inpSz in inputSize) {
+                println(formatter(listOf(inpSz) + patternSize.map { "%.2f".format(result[it to inpSz])}))
+                println(delimiter)
+            }
+        }
+
+        val superheader = " pattern size |                                  input size                               "
+        println(globalDelimiter)
+        println(globalFormatter("Results of original program"))
+        println(globalDelimiter)
+        println(globalFormatter(superheader))
+        printTableForResult(originalProgramResult)
+
+        println()
+
+        println(globalDelimiter)
+        println(globalFormatter("Results of supercompiled program"))
+        println(globalDelimiter)
+        println(globalFormatter(superheader))
+        printTableForResult(supercompiledProgramResults)
+
+        println()
+        println("The time measures in seconds.")
+        println("There is average of $groupDatasetSize measures in one cell of the table!")
+        println()
+    }
+
+
 }
