@@ -9,10 +9,16 @@ import ru.itmo.mit.supercompiler.Constructor.Companion.num
 import ru.itmo.mit.supercompiler.Constructor.Companion.succ
 import ru.itmo.mit.supercompiler.Constructor.Companion.tru
 import ru.itmo.mit.supercompiler.Constructor.Companion.zero
+import ru.itmo.mit.supercompiler.SupercompilationTest.KnuthMorrisPrattABCD.letters
+import java.lang.Integer.max
+import java.lang.Integer.min
+import java.lang.StringBuilder
 import kotlin.random.Random
+import kotlin.system.measureNanoTime
 
 class SupercompilationTest {
 
+    /// dataset definitions
     @DataProvider(name = "tenNaturals")
     fun getTenNaturals(@TestInstance `object`: Any): Array<Array<Any>> {
         val data = (1..10).map { arrayOf(it as Any) }.toTypedArray()
@@ -28,14 +34,46 @@ class SupercompilationTest {
 
     @DataProvider(name = "someStrings")
     fun getSomeStrings(@TestInstance `object`: Any): Array<Array<Any>> {
-        val letters = "ABCD"
 
-        val data = (1..50).map {
-            (1..Random.nextInt(1, 10)).fold("") {s, c -> s + letters.random()}
-        }.map { arrayOf(it as Any) }.toTypedArray()
-        return data
+        val data = (1..10).flatMap {
+            val pattern = (1..Random.nextInt(1, 5)).fold("") {s, c -> s + letters.random()}
+
+            val data = (1..50).map {
+                (1..Random.nextInt(1, 25)).fold("") {s, c -> s + letters.random()}
+            }.map {
+                // try do distribute examples evenly
+                if (Random.nextFloat() < 0.5) {
+                    it.replace(pattern, "")
+                } else {
+                    StringBuilder(it).insert(Random.nextInt(it.length), pattern).toString()
+                }
+            }
+                .map { arrayOf(pattern as Any, it as Any) }
+            data
+        }
+        return data.toTypedArray()
     }
 
+    fun getFixedSizedStrings(patternSize : Int, stringSize : Int, datasetSize : Int) : Pair<String, List<String>> {
+        val pattern = (1..patternSize).fold("") {s, c -> s + letters.random()}
+
+        val data = (1..datasetSize).map {
+            (1..stringSize).fold("") {s, c -> s + letters.random()}
+        }.map {
+            // try do distribute examples evenly
+            if (Random.nextFloat() < 0.5) {
+                it.replace(pattern, "")
+            } else {
+                val beginPos = Random.nextInt(max(it.length - pattern.length, 1))
+                StringBuilder(it)
+                    .replace(beginPos, beginPos + pattern.length, pattern)
+                    .toString()
+            }
+        }
+        return pattern to data
+    }
+
+    /// Tests
     @Test
     fun youBetterWork_debugOutput() {
         val prog = CommonExpressions.sumSquaresN(Var("n"))
@@ -103,6 +141,7 @@ class SupercompilationTest {
     object KnuthMorrisPrattABCD {
         // https://github.com/sergei-romanenko/spsc-idris/blob/master/tasks/kmp_A.task
 
+        val letters = "ABCD"
 
         fun buildKmpString(s : String) : Constructor {
             return s.foldRight(nil) {ch, acc -> Constructor(ch.toString()) cons acc}
@@ -236,13 +275,124 @@ class SupercompilationTest {
 
 
     @Test(dataProvider = "someStrings")
-    fun kmpExtensionalityTest(input : String) {
-        val kmpFinder = KnuthMorrisPrattABCD.buildProgram("ABAC")
+    fun kmpExtensionalityTest(pattern : String, input : String) {
+        val kmpFinder = KnuthMorrisPrattABCD.buildProgram(pattern)
         val supercompiledFinder = supercompile(kmpFinder, debug = false)
 
         val stringAsTerm = KnuthMorrisPrattABCD.buildKmpString(input)
         val regularResult = kmpFinder.fmap { (this abs "str") app stringAsTerm }
         val superResult = (supercompiledFinder abs "str" app stringAsTerm).toProgram()
         assertTrue(regularResult.hnf().expression isomorphic superResult.hnf().expression)
+    }
+
+
+
+    @Test
+    fun kmpPerformanceTest() {
+        // testing grid
+        val patternSize = listOf(1, 2, 3, 4, 5) // columns
+        val inputSize = listOf(5, 10, 15, 20, 25) // rows
+        val groupDatasetSize = 50
+
+        // results stored here
+        val originalProgramResult = mutableMapOf<Pair<Int, Int>, Double>()
+        val supercompiledProgramResults = mutableMapOf<Pair<Int, Int>, Double>()
+
+
+        fun calculate(patternSize: Int, inputSize: Int, datasetSize: Int) {
+            // extract data
+            val dataset = getFixedSizedStrings(patternSize, inputSize, datasetSize)
+            val (pattern, strings) = dataset
+
+            // prepare programs for pattern
+            val kmpFinder = KnuthMorrisPrattABCD.buildProgram(pattern)
+            val supercompiledFinder = supercompile(kmpFinder, debug = false)
+
+            var sumOriginalPerformance = .0
+            var sumSuperdompiledPerformance = .0
+            for (input in strings) {
+                // preparing subprograms
+                val stringAsTerm = KnuthMorrisPrattABCD.buildKmpString(input)
+                val regularTerm = kmpFinder.fmap { (this abs "str") app stringAsTerm }
+                val superTerm = (supercompiledFinder abs "str" app stringAsTerm).toProgram()
+
+                // launch execution of original version of the program
+                val time1 = measureNanoTime {
+                    // just normalize, no need to check result in performance test
+                    regularTerm.hnf()
+                }
+                // and then measure supercompiled version
+                val time2 = measureNanoTime {
+                    superTerm.hnf()
+                }
+
+                sumOriginalPerformance += time1 / 1000000000.0
+                sumSuperdompiledPerformance += time2 / 1000000000.0
+            }
+
+            // when cycle is over, add info to the final result
+            originalProgramResult[patternSize to inputSize] = sumOriginalPerformance / datasetSize
+            supercompiledProgramResults[patternSize to inputSize] = sumSuperdompiledPerformance / datasetSize
+        }
+
+        // perform computations
+        for (patSz in patternSize) {
+            for (inpSz in inputSize) {
+                println("Computing with parameters patternSize=$patSz, inputSize=$inpSz, datasetSize=$groupDatasetSize")
+                calculate(patSz, inpSz, groupDatasetSize)
+            }
+        }
+
+        // output table
+
+        println()
+        println(" === ")
+        println()
+        println("Task has been done!")
+        println("Performance table:")
+
+        val columnWidth = 15
+        val columnCount = patternSize.size + 1
+        val widthLimit = columnCount * (columnWidth + 1) - 1
+        val globalDelimiter = "+" + "-".repeat(widthLimit) + "+"
+        fun globalFormatter(arg : Any?) : String {
+            val prepared =  "+" + " ".repeat(widthLimit) + "+"
+            val content = arg.toString()
+            val start = max((widthLimit - content.length) / 2, 1)
+            val end = min(start + content.length, prepared.length - 1)
+            return prepared.replaceRange(start, end, content)
+        }
+
+        val delimiter = "+" + ("-".repeat(columnWidth) + "+").repeat(columnCount)
+        fun formatter(args : List<Any?>) = args.fold("|") { str, smth -> str + " %${columnWidth - 2}s |".format(smth) }
+        fun printTableForResult(result : Map<Pair<Int, Int>, Double>) {
+            println(delimiter)
+            println(formatter(listOf("") + patternSize))
+            println(delimiter)
+            for (inpSz in inputSize) {
+                println(formatter(listOf(inpSz) + patternSize.map { "%.2f".format(result[it to inpSz])}))
+                println(delimiter)
+            }
+        }
+
+        val superheader = " pattern size |                                  input size                               "
+        println(globalDelimiter)
+        println(globalFormatter("Results of original program"))
+        println(globalDelimiter)
+        println(globalFormatter(superheader))
+        printTableForResult(originalProgramResult)
+
+        println()
+
+        println(globalDelimiter)
+        println(globalFormatter("Results of supercompiled program"))
+        println(globalDelimiter)
+        println(globalFormatter(superheader))
+        printTableForResult(supercompiledProgramResults)
+
+        println()
+        println("The time measures in seconds.")
+        println("There is average of $groupDatasetSize measures in one cell of the table!")
+        println()
     }
 }

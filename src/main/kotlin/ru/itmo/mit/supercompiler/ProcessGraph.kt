@@ -298,7 +298,7 @@ class ProcessGraph private constructor(program: Program, private val debug : Boo
                         // assert(gen.expr isomorphic expr) // check just in case -- that's not exactly true
                         singularSubstitution(gen.subLeft, gen.subRight) ?: error("Couldn't build mapping")
                     }
-                    val vi_dom = thetas.flatMap { it.keys } // get all possible substitution domains and merge them
+                    val vi_dom = thetas.flatMap { it.keys }.toSet() // get all possible substitution domains and merge them
                     val vi_new = vi_dom.map { nameGen.next() } // generate the same amount of new variables
                     val theta_dash = vi_dom.zip(vi_new).toMap().mapValues { (_, v) -> Var(v) } // then create uniform renaming and fix arity
 
